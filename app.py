@@ -3,8 +3,6 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
-import numpy as np
-from datetime import datetime, timedelta
 import time
 import plotly.express as px
 from io import BytesIO
