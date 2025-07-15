@@ -5,7 +5,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import io
 import time
 import plotly.express as px
 from io import BytesIO
@@ -247,6 +246,32 @@ def filter_outliers(df, column):
     upper_bound = Q3 + 1.5 * IQR
     df_filtered = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
     return df_filtered
+
+
+def plotly_to_image(fig, format="png", **kwargs):
+    """Safely convert a Plotly figure to an in-memory image.
+
+    Parameters
+    ----------
+    fig : plotly.graph_objs.Figure
+        The Plotly figure to convert.
+    format : str, optional
+        Image format understood by Kaleido (default ``"png"``).
+    kwargs : Any
+        Additional keyword arguments passed to ``fig.to_image``.
+
+    Returns
+    -------
+    BytesIO or None
+        A buffer containing the image data if conversion succeeds,
+        otherwise ``None``.
+    """
+    try:
+        img_bytes = fig.to_image(format=format, **kwargs)
+        return BytesIO(img_bytes)
+    except Exception as e:
+        st.warning(f"Unable to export figure to image: {e}")
+        return None
 
 
 # Main application logic
@@ -661,11 +686,12 @@ def main():
                         )
                         fig_delivery.update_layout(showlegend=False)
                         st.plotly_chart(fig_delivery, use_container_width=True)
+                        img_buf = plotly_to_image(fig_delivery)
                         pdf_elements.append(
                             (
                                 "On-Time Delivery Performance",
                                 delivery_data,
-                                fig_delivery.to_image(format="png"),
+                                img_buf,
                             )
                         )
 
@@ -853,10 +879,9 @@ def main():
                 )
                 top_vendors_display.reset_index(drop=True, inplace=True)
                 st.dataframe(top_vendors_display)
-                img_bytes = fig_top_vendors.to_image(
-                    format="png", width=800, height=600
+                img_buf = plotly_to_image(
+                    fig_top_vendors, format="png", width=800, height=600
                 )
-                img_buf = BytesIO(img_bytes)
                 pdf_elements.append(
                     ("Top 5 Vendors by Amount", top_vendors_display, img_buf)
                 )
@@ -899,10 +924,15 @@ def main():
                 )
                 top_items_no_outliers_display.reset_index(drop=True, inplace=True)
                 st.dataframe(top_items_no_outliers_display)
-                img_bytes = fig_top_items.to_image(format="png", width=1000, height=600)
-                img_buf = BytesIO(img_bytes)
+                img_buf = plotly_to_image(
+                    fig_top_items, format="png", width=1000, height=600
+                )
                 pdf_elements.append(
-                    ("Top Items by QtyOrdered", top_items_no_outliers_display, img_buf)
+                    (
+                        "Top Items by QtyOrdered",
+                        top_items_no_outliers_display,
+                        img_buf,
+                    )
                 )
 
             # Processing time
@@ -915,7 +945,7 @@ def main():
 
             # Generate PDF Report
             if st.button("Generate PDF Report"):
-                buffer = io.BytesIO()
+                buffer = BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=letter)
                 elements = []
                 styles = getSampleStyleSheet()
