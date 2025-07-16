@@ -103,6 +103,26 @@ st.markdown(
     table {
         margin-left: auto;
         margin-right: auto;
+        width: 100%;
+        border-collapse: collapse;
+    }
+    thead th {
+        background-color: #1f4e79;
+        color: white;
+        padding: 8px;
+    }
+    tbody td {
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+    }
+    tbody tr:nth-child(even) {
+        background-color: #f5f5f5;
+    }
+    tbody tr:hover {
+        background-color: #e0f7fa;
+    }
+    div[data-testid="stDataFrame"] > div {
+        overflow-x: auto;
     }
     </style>
     """,
@@ -734,7 +754,7 @@ def main():
                             # Reset index and drop it
                             late_pos_display.reset_index(drop=True, inplace=True)
 
-                            st.dataframe(late_pos_display)
+                            st.dataframe(late_pos_display, use_container_width=True)
                             pdf_elements.append(
                                 (
                                     "List of Late Purchase Orders by Request Date",
@@ -784,7 +804,7 @@ def main():
             po_counts_final.reset_index(drop=True, inplace=True)
 
             # Make table page-wide
-            st.write(po_counts_final)
+            st.dataframe(po_counts_final, use_container_width=True)
             pdf_elements.append(
                 ("PO Count per Requisitioner by Order Date", po_counts_final, None)
             )
@@ -818,7 +838,7 @@ def main():
                 # Reset index and drop it
                 last_orders_display.reset_index(drop=True, inplace=True)
 
-                st.dataframe(last_orders_display)
+                st.dataframe(last_orders_display, use_container_width=True)
                 pdf_elements.append(
                     ("Last Orders for the period", last_orders_display, None)
                 )
@@ -847,7 +867,9 @@ def main():
             # Reset index and drop it
             vendor_amount_no_outliers_display.reset_index(drop=True, inplace=True)
 
-            st.dataframe(vendor_amount_no_outliers_display)
+            st.dataframe(
+                vendor_amount_no_outliers_display, use_container_width=True
+            )
             pdf_elements.append(
                 (
                     "Open Orders Amount per Vendor",
@@ -885,7 +907,7 @@ def main():
                     lambda x: f"${x:,.2f}"
                 )
                 top_vendors_display.reset_index(drop=True, inplace=True)
-                st.dataframe(top_vendors_display)
+                st.dataframe(top_vendors_display, use_container_width=True)
                 img_buf = plotly_to_image(
                     fig_top_vendors, format="png", width=800, height=600
                 )
@@ -930,7 +952,9 @@ def main():
                     )
                 )
                 top_items_no_outliers_display.reset_index(drop=True, inplace=True)
-                st.dataframe(top_items_no_outliers_display)
+                st.dataframe(
+                    top_items_no_outliers_display, use_container_width=True
+                )
                 img_buf = plotly_to_image(
                     fig_top_items, format="png", width=1000, height=600
                 )
