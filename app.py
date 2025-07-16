@@ -22,6 +22,16 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
+# Verify that the Kaleido package is available for Plotly image export
+try:
+    import kaleido  # noqa: F401
+except ImportError:  # pragma: no cover - handled at runtime
+    st.error(
+        "Kaleido is required for exporting charts as images."
+        "\nInstall it with `pip install kaleido` and restart the app."
+    )
+    st.stop()
+
 # Configure Streamlit page
 st.set_page_config(
     page_title="TTU Purchase Orders Log",

@@ -26,8 +26,9 @@ filtered_df = df[(df[column] >= lower) & (df[column] <= upper)]
 ```bash
 pip install -r requirements.txt
 ```
-The `kaleido` package is required for exporting Plotly figures to images. It is
-included in the `requirements.txt`, but you can install it manually with:
+The application requires the `kaleido` package for exporting Plotly figures.
+It is included in `requirements.txt`, but if you encounter errors related to
+image export, ensure Kaleido is installed manually with:
 
 ```bash
 pip install kaleido
