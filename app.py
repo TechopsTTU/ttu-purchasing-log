@@ -307,7 +307,14 @@ def plotly_to_image(fig, format="png", **kwargs):
         )
         return None
     except Exception as e:
-        st.warning(f"Unable to export figure to image: {e}")
+        error_msg = str(e)
+        if "Google Chrome" in error_msg:
+            st.warning(
+                "Unable to export figure to image. Kaleido requires Google Chrome.\n"
+                "Run `plotly_get_chrome -y` to install a local copy or install Chrome manually."
+            )
+        else:
+            st.warning(f"Unable to export figure to image: {error_msg}")
         return None
 
 
