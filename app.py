@@ -1,11 +1,14 @@
 # app.py
 
-# Import necessary libraries
+
+# Standard library imports
+import time
+from io import BytesIO
+
+# Third-party imports
 import streamlit as st
 import pandas as pd
-import time
 import plotly.express as px
-from io import BytesIO
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import (
