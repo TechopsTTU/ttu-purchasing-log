@@ -270,6 +270,12 @@ def plotly_to_image(fig, format="png", **kwargs):
     try:
         img_bytes = fig.to_image(format=format, **kwargs)
         return BytesIO(img_bytes)
+    except (ValueError, ImportError) as e:
+        st.warning(
+            "Unable to export figure to image. Ensure the 'kaleido' package is installed. "
+            f"Error: {e}"
+        )
+        return None
     except Exception as e:
         st.warning(f"Unable to export figure to image: {e}")
         return None

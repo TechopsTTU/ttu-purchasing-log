@@ -3,3 +3,4 @@ openpyxl==3.1.5
 plotly==5.23.0
 reportlab==4.2.2
 streamlit==1.38.0
+kaleido==0.2.1
