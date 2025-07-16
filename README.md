@@ -1,46 +1,40 @@
 # TTU Purchase Orders Log
 
-This Streamlit application analyzes purchase order data from an uploaded Excel file. It filters and aggregates the dataset to provide metrics such as:
+TTU Purchase Orders Log is a web application built with [Streamlit](https://streamlit.io/) for analyzing purchase order data stored in Excel workbooks. After uploading a log, the tool aggregates the data and displays interactive charts and summary metrics. It can also generate a PDF report containing the plots and tables.
 
-- **Total Open Orders Amount** – sum of `Amt` where `POStatus` is `OPEN`.
-- **Total Orders Placed** – number of unique purchase orders.
-- **Total Lines Ordered** – total row count after filtering.
-- **Most Expensive Order** – highest `Amt` value.
-- **On‑time Percentage** – `(on_time / total) * 100` comparing requested and received dates.
+## Features
 
-Outliers are removed from charts using the Interquartile Range (IQR) method:
+- Summarizes open order amounts, total orders placed, lines ordered, and most expensive order
+- Calculates on‑time delivery percentage by comparing requested and received dates
+- Removes outliers from charts using the Interquartile Range (IQR) method
+- Interactive graphs powered by Plotly
+- Option to export analysis results to a PDF report
 
-```
-Q1 = df[column].quantile(0.25)
-Q3 = df[column].quantile(0.75)
-IQR = Q3 - Q1
-lower = Q1 - 1.5 * IQR
-upper = Q3 + 1.5 * IQR
-filtered_df = df[(df[column] >= lower) & (df[column] <= upper)]
-```
+## Requirements
 
-## Usage
+- Python 3.9+
+- Packages listed in [`requirements.txt`](requirements.txt), including:
+  - `pandas`
+  - `openpyxl`
+  - `plotly`
+  - `streamlit`
+  - `kaleido` for exporting figures
 
-1. Install dependencies:
+Install the dependencies with:
 
 ```bash
 pip install -r requirements.txt
 ```
-The application requires the `kaleido` package for exporting Plotly figures.
-It is included in `requirements.txt`, but if you encounter errors related to
-image export, ensure Kaleido is installed manually with:
 
-```bash
-pip install kaleido
-```
+## Usage
 
-2. Launch the app:
+Run the application with Streamlit:
 
 ```bash
 streamlit run app.py
 ```
 
-Upload an Excel purchase order log to explore the metrics and generate a PDF report.
+Upload a purchase order Excel file when prompted. The app will display metrics, charts, and provide an option to download a PDF report.
 
 ## License
 
