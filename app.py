@@ -4,6 +4,7 @@
 # Standard library imports
 import time
 from io import BytesIO
+import os
 
 # Third-party imports
 import streamlit as st
@@ -31,6 +32,20 @@ except ImportError:  # pragma: no cover - handled at runtime
         "\nInstall it with `pip install kaleido` and restart the app."
     )
     st.stop()
+
+# Attempt to automatically use Microsoft Edge as the browser for Kaleido if
+# the user has not specified one.
+if "KALIEDO_BROWSER_PATH" not in os.environ:
+    edge_paths = [
+        r"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        r"C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+        "/usr/bin/microsoft-edge",
+        "/usr/bin/microsoft-edge-stable",
+    ]
+    for _path in edge_paths:
+        if os.path.exists(_path):
+            os.environ["KALIEDO_BROWSER_PATH"] = _path
+            break
 
 # Configure Streamlit page
 st.set_page_config(
@@ -308,10 +323,10 @@ def plotly_to_image(fig, format="png", **kwargs):
         return None
     except Exception as e:
         error_msg = str(e)
-        if "Google Chrome" in error_msg:
+        if "Google Chrome" in error_msg or "no suitable chromium" in error_msg.lower():
             st.warning(
-                "Unable to export figure to image. Kaleido requires Google Chrome.\n"
-                "Run `plotly_get_chrome -y` to install a local copy or install Chrome manually."
+                "Unable to export figure to image. Kaleido requires a Chromium-based browser such as Microsoft Edge or Google Chrome.\n"
+                "Set the KALIEDO_BROWSER_PATH environment variable to the browser executable or run `plotly_get_chrome -y` to install a local copy."
             )
         else:
             st.warning(f"Unable to export figure to image: {error_msg}")
