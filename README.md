@@ -18,18 +18,6 @@ TTU Purchase Orders Log is a web application built with [Streamlit](https://stre
   - `openpyxl`
   - `plotly`
   - `streamlit`
-- `kaleido` for exporting figures
-
-When using Kaleido, a Chromium-based browser such as Microsoft Edge or Google
-Chrome must be installed. Set the `KALIEDO_BROWSER_PATH` environment variable
-to the path of your preferred browser if it is not Chrome. If no browser is
-available you can install a bundled copy of Chromium by running:
-
-```bash
-plotly_get_chrome -y
-```
-
-This command downloads a local copy of Chromium for use by Kaleido.
 
 Install the dependencies with:
 

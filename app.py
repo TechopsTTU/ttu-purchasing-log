@@ -23,29 +23,6 @@ from reportlab.platypus import (
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 
-# Verify that the Kaleido package is available for Plotly image export
-try:
-    import kaleido  # noqa: F401
-except ImportError:  # pragma: no cover - handled at runtime
-    st.error(
-        "Kaleido is required for exporting charts as images."
-        "\nInstall it with `pip install kaleido` and restart the app."
-    )
-    st.stop()
-
-# Attempt to automatically use Microsoft Edge as the browser for Kaleido if
-# the user has not specified one.
-if "KALIEDO_BROWSER_PATH" not in os.environ:
-    edge_paths = [
-        r"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-        r"C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-        "/usr/bin/microsoft-edge",
-        "/usr/bin/microsoft-edge-stable",
-    ]
-    for _path in edge_paths:
-        if os.path.exists(_path):
-            os.environ["KALIEDO_BROWSER_PATH"] = _path
-            break
 
 # Configure Streamlit page
 st.set_page_config(
@@ -295,42 +272,8 @@ def filter_outliers(df, column):
 
 
 def plotly_to_image(fig, format="png", **kwargs):
-    """Safely convert a Plotly figure to an in-memory image.
-
-    Parameters
-    ----------
-    fig : plotly.graph_objs.Figure
-        The Plotly figure to convert.
-    format : str, optional
-        Image format understood by Kaleido (default ``"png"``).
-    kwargs : Any
-        Additional keyword arguments passed to ``fig.to_image``.
-
-    Returns
-    -------
-    BytesIO or None
-        A buffer containing the image data if conversion succeeds,
-        otherwise ``None``.
-    """
-    try:
-        img_bytes = fig.to_image(format=format, **kwargs)
-        return BytesIO(img_bytes)
-    except (ValueError, ImportError) as e:
-        st.warning(
-            "Unable to export figure to image. Ensure the 'kaleido' package is installed. "
-            f"Error: {e}"
-        )
-        return None
-    except Exception as e:
-        error_msg = str(e)
-        if "Google Chrome" in error_msg or "no suitable chromium" in error_msg.lower():
-            st.warning(
-                "Unable to export figure to image. Kaleido requires a Chromium-based browser such as Microsoft Edge or Google Chrome.\n"
-                "Set the KALIEDO_BROWSER_PATH environment variable to the browser executable or run `plotly_get_chrome -y` to install a local copy."
-            )
-        else:
-            st.warning(f"Unable to export figure to image: {error_msg}")
-        return None
+    """Return ``None`` since image export is disabled."""
+    return None
 
 
 # Main application logic
@@ -762,6 +705,16 @@ def main():
                                 pd.to_datetime(late_pos["RecDate"])
                                 - pd.to_datetime(late_pos["RequestDate"])
                             ).dt.days
+
+                            fig_late = px.histogram(
+                                late_pos,
+                                x="Days Late",
+                                title="Distribution of Days Late",
+                                nbins=20,
+                            )
+                            st.plotly_chart(fig_late, use_container_width=True)
+                            img_buf = plotly_to_image(fig_late)
+
                             late_pos_display = late_pos[
                                 [
                                     "OrderDate",
@@ -791,7 +744,7 @@ def main():
                                 (
                                     "List of Late Purchase Orders by Request Date",
                                     late_pos_display,
-                                    None,
+                                    img_buf,
                                 )
                             )
                         else:
@@ -835,16 +788,34 @@ def main():
             # Remove index and reset it
             po_counts_final.reset_index(drop=True, inplace=True)
 
+            fig_po_counts = px.bar(
+                po_counts,
+                x="Requisitioner",
+                y="PO Count",
+                title="PO Count per Requisitioner",
+            )
+            st.plotly_chart(fig_po_counts, use_container_width=True)
+            img_buf = plotly_to_image(fig_po_counts)
+
             # Make table page-wide
             st.dataframe(po_counts_final, use_container_width=True)
             pdf_elements.append(
-                ("PO Count per Requisitioner by Order Date", po_counts_final, None)
+                ("PO Count per Requisitioner by Order Date", po_counts_final, img_buf)
             )
 
             # Last Orders for the period
             st.markdown("### Last Orders for the period")
             last_orders = df_filtered.sort_values(by="OrderDate", ascending=False)
             if not last_orders.empty:
+                fig_last_orders = px.bar(
+                    last_orders.head(10),
+                    x="OrderDate",
+                    y="Total",
+                    title="Last Orders by Amount",
+                )
+                st.plotly_chart(fig_last_orders, use_container_width=True)
+                img_buf = plotly_to_image(fig_last_orders)
+
                 last_orders_display = last_orders.copy()
                 if "Total" in last_orders_display.columns:
                     last_orders_display["Total"] = last_orders_display["Total"].apply(
@@ -872,7 +843,7 @@ def main():
 
                 st.dataframe(last_orders_display, use_container_width=True)
                 pdf_elements.append(
-                    ("Last Orders for the period", last_orders_display, None)
+                    ("Last Orders for the period", last_orders_display, img_buf)
                 )
             else:
                 st.write("No orders found.")
@@ -899,14 +870,21 @@ def main():
             # Reset index and drop it
             vendor_amount_no_outliers_display.reset_index(drop=True, inplace=True)
 
-            st.dataframe(
-                vendor_amount_no_outliers_display, use_container_width=True
+            fig_vendor_amount = px.bar(
+                vendor_amount_no_outliers,
+                x="VendorName",
+                y="Total",
+                title="Open Orders Amount per Vendor",
             )
+            st.plotly_chart(fig_vendor_amount, use_container_width=True)
+            img_buf = plotly_to_image(fig_vendor_amount)
+
+            st.dataframe(vendor_amount_no_outliers_display, use_container_width=True)
             pdf_elements.append(
                 (
                     "Open Orders Amount per Vendor",
                     vendor_amount_no_outliers_display,
-                    None,
+                    img_buf,
                 )
             )
 
@@ -984,9 +962,7 @@ def main():
                     )
                 )
                 top_items_no_outliers_display.reset_index(drop=True, inplace=True)
-                st.dataframe(
-                    top_items_no_outliers_display, use_container_width=True
-                )
+                st.dataframe(top_items_no_outliers_display, use_container_width=True)
                 img_buf = plotly_to_image(
                     fig_top_items, format="png", width=1000, height=600
                 )
