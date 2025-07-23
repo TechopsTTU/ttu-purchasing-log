@@ -21,6 +21,8 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.styles import ParagraphStyle
 
 # Verify that the Kaleido package is available for Plotly image export
 try:
@@ -46,93 +48,154 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Overall background */
-    body {
-        background-color: #f5f5f5;
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Overall app styling */
+    .stApp {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        font-family: 'Inter', sans-serif;
     }
-    .title-container {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
+    
+    /* Main container */
+    .main .block-container {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        max-width: 1200px;
     }
+    
+    /* Title styling */
     .title {
-        font-size: 36px;
-        font-weight: bold;
+        font-size: 2.5rem;
+        font-weight: 700;
         color: #1f4e79;
-        text-align: right;
+        text-align: left;
         text-transform: uppercase;
-        text-shadow: 1px 1px 2px #aaa;
-        margin-right: 20px;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        margin: 0;
+        line-height: 1.2;
     }
-    /* Style for index cards */
+    
+    /* Enhanced card styling */
     .card {
-        background-color: #ffffff;
-        padding: 10px;
-        border-radius: 10px;
-        box-shadow: 2px 4px 12px rgba(0,0,0,0.1);
-        min-height: 100px;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        min-height: 120px;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        margin: 5px;
-        word-wrap: break-word;
+        margin: 10px 0;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        backdrop-filter: blur(10px);
     }
+    
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+    }
+    
     .card h3 {
-        margin-bottom: 5px;
+        margin-bottom: 10px;
         text-align: center;
-        font-size: 16px;
-        color: #333333;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #495057;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
+    
     .card p {
         margin: 0;
-        font-size: 20px;
+        font-size: 1.4rem;
         text-align: center;
-        font-weight: bold;
+        font-weight: 700;
         white-space: pre-wrap;
         color: #1f4e79;
     }
-    /* Style for percentage value in index cards */
+    
+    /* Enhanced percentage styling */
     .percentage-value {
-        font-size: 36px;
-        color: #ff5722;
-        font-weight: bold;
+        font-size: 3rem;
+        color: #28a745;
+        font-weight: 800;
         margin: 0;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
     }
-    /* Custom colors for Streamlit elements */
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background: linear-gradient(180deg, #1f4e79 0%, #2c5aa0 100%);
+    }
+    
+    .css-1d391kg .stSelectbox label,
+    .css-1d391kg .stDateInput label,
+    .css-1d391kg .stCheckbox label,
+    .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3 {
+        color: white !important;
+        font-weight: 500;
+    }
+    
+    /* Enhanced button styling */
     .stButton > button {
-        background-color: #1f4e79;
+        background: linear-gradient(145deg, #1f4e79 0%, #2c5aa0 100%);
         color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6rem 1.2rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(31, 78, 121, 0.3);
     }
-    .metrics-section h2 {
+    
+    .stButton > button:hover {
+        background: linear-gradient(145deg, #2c5aa0 0%, #1f4e79 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(31, 78, 121, 0.4);
+    }
+    
+    /* Section headers */
+    .section-header {
+        background: linear-gradient(90deg, #1f4e79 0%, #2c5aa0 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        margin: 20px 0 15px 0;
+        font-weight: 600;
+        font-size: 1.2rem;
+        box-shadow: 0 4px 15px rgba(31, 78, 121, 0.2);
+    }
+    
+    /* Enhanced table styling */
+    .stDataFrame {
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    /* File uploader styling */
+    .stFileUploader {
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        padding: 20px;
+        border: 2px dashed rgba(255,255,255,0.3);
+    }
+    
+    /* Processing time styling */
+    .processing-time {
         text-align: center;
-        color: #1f4e79;
-        margin-bottom: 10px;
-    }
-    /* Style for tables */
-    table {
-        margin-left: auto;
-        margin-right: auto;
-        width: 100%;
-        border-collapse: collapse;
-    }
-    thead th {
-        background-color: #1f4e79;
-        color: white;
-        padding: 8px;
-    }
-    tbody td {
-        padding: 8px;
-        border-bottom: 1px solid #ddd;
-    }
-    tbody tr:nth-child(even) {
-        background-color: #f5f5f5;
-    }
-    tbody tr:hover {
-        background-color: #e0f7fa;
-    }
-    div[data-testid="stDataFrame"] > div {
-        overflow-x: auto;
+        color: #6c757d;
+        font-size: 0.8rem;
+        font-style: italic;
+        margin-top: 30px;
+        padding: 10px;
+        background: rgba(255,255,255,0.7);
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
     }
     </style>
     """,
@@ -142,9 +205,24 @@ st.markdown(
 
 # Title and Logo
 def display_logo_title():
-    st.markdown(
-        '<h1 class="title">TTU Purchase Orders Log</h1>', unsafe_allow_html=True
-    )
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        try:
+            st.image("TTU_LOGO.jpg", width=120)
+        except:
+            st.write("")  # Skip if logo not found
+    with col2:
+        st.markdown(
+            """
+            <div style='margin-top: 20px;'>
+                <h1 class="title">TTU Purchase Orders Log</h1>
+                <p style='color: #666; font-size: 16px; margin-top: -10px;'>
+                    📊 Purchase Order Analytics & Reporting Dashboard
+                </p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
 
 
 # Callback function to reset date filters
@@ -307,14 +385,7 @@ def plotly_to_image(fig, format="png", **kwargs):
         )
         return None
     except Exception as e:
-        error_msg = str(e)
-        if "Google Chrome" in error_msg:
-            st.warning(
-                "Unable to export figure to image. Kaleido requires Google Chrome.\n"
-                "Run `plotly_get_chrome -y` to install a local copy or install Chrome manually."
-            )
-        else:
-            st.warning(f"Unable to export figure to image: {error_msg}")
+        st.warning(f"Unable to export figure to image: {e}")
         return None
 
 
@@ -323,9 +394,18 @@ def main():
     display_logo_title()
 
     with st.sidebar:
-        # Display the logo
-        st.image("TTU_LOGO.jpg", width=150)
-        uploaded_file = st.file_uploader("Choose an Excel file here", type=["xlsx"])
+        # Header with logo
+        st.markdown("### 📁 Data Upload")
+        uploaded_file = st.file_uploader(
+            "Choose an Excel file here", 
+            type=["xlsx"],
+            help="Upload your purchase orders Excel file to begin analysis"
+        )
+        
+        if uploaded_file:
+            st.success(f"✅ File uploaded: {uploaded_file.name}")
+        
+        st.markdown("---")
 
     if uploaded_file:
         processing_start_time = time.time()
@@ -368,127 +448,127 @@ def main():
                 st.session_state.request_end_date = initial_request_max_date
 
             with st.sidebar:
-                # Filter by OrderDate
-                st.header("Filter by OrderDate")
+                # Date Filters Section
+                st.markdown("### 📅 Date Filters")
+                
+                with st.expander("📋 Order Date Range", expanded=True):
+                    # Get current min and max dates from df_filtered
+                    order_min_date = df_filtered["OrderDate"].min().date()
+                    order_max_date = df_filtered["OrderDate"].max().date()
 
-                # Get current min and max dates from df_filtered
-                order_min_date = df_filtered["OrderDate"].min().date()
-                order_max_date = df_filtered["OrderDate"].max().date()
+                    # Ensure default values are within min and max
+                    order_start_default = st.session_state.order_start_date
+                    order_end_default = st.session_state.order_end_date
 
-                # Ensure default values are within min and max
-                order_start_default = st.session_state.order_start_date
-                order_end_default = st.session_state.order_end_date
+                    if (
+                        order_start_default < order_min_date
+                        or order_start_default > order_max_date
+                    ):
+                        order_start_default = order_min_date
+                    if (
+                        order_end_default < order_min_date
+                        or order_end_default > order_max_date
+                    ):
+                        order_end_default = order_max_date
 
-                if (
-                    order_start_default < order_min_date
-                    or order_start_default > order_max_date
-                ):
-                    order_start_default = order_min_date
-                if (
-                    order_end_default < order_min_date
-                    or order_end_default > order_max_date
-                ):
-                    order_end_default = order_max_date
+                    order_start_date = st.date_input(
+                        "Start Date",
+                        order_start_default,
+                        min_value=order_min_date,
+                        max_value=order_max_date,
+                        key="order_start_date_input",
+                    )
+                    order_end_date = st.date_input(
+                        "End Date",
+                        order_end_default,
+                        min_value=order_min_date,
+                        max_value=order_max_date,
+                        key="order_end_date_input",
+                    )
 
-                order_start_date = st.date_input(
-                    "Order Start Date",
-                    order_start_default,
-                    min_value=order_min_date,
-                    max_value=order_max_date,
-                    key="order_start_date_input",
-                )
-                order_end_date = st.date_input(
-                    "Order End Date",
-                    order_end_default,
-                    min_value=order_min_date,
-                    max_value=order_max_date,
-                    key="order_end_date_input",
-                )
+                    # Update session state
+                    st.session_state.order_start_date = order_start_date
+                    st.session_state.order_end_date = order_end_date
 
-                # Update session state
-                st.session_state.order_start_date = order_start_date
-                st.session_state.order_end_date = order_end_date
-
-                if order_start_date > order_end_date:
-                    st.error("Error: Order End Date must fall after Order Start Date.")
+                    if order_start_date > order_end_date:
+                        st.error("⚠️ End Date must be after Start Date.")
 
                 # Filter df_filtered based on OrderDate range
                 df_filtered = df_filtered[
                     (df_filtered["OrderDate"] >= pd.to_datetime(order_start_date))
                     & (df_filtered["OrderDate"] <= pd.to_datetime(order_end_date))
-                ].copy()
+                ]
 
-                # After applying OrderDate filter, update the min and max for RequestDate
+                # Request Date Filter
                 if "RequestDate" in df_filtered.columns and not df_filtered.empty:
                     request_min_date = df_filtered["RequestDate"].min().date()
                     request_max_date = df_filtered["RequestDate"].max().date()
 
                     # Add a checkbox for enabling the RequestDate filter
                     filter_request_date = st.checkbox(
-                        "Filter by RequestDate", value=False
+                        "🗓️ Enable Request Date Filter", value=False
                     )
 
                     # Show date pickers only if checkbox is selected
                     if filter_request_date:
-                        st.header("Filter by RequestDate")
+                        with st.expander("📋 Request Date Range", expanded=True):
+                            # Ensure default values are within min and max
+                            request_start_default = st.session_state.request_start_date
+                            request_end_default = st.session_state.request_end_date
 
-                        # Ensure default values are within min and max
-                        request_start_default = st.session_state.request_start_date
-                        request_end_default = st.session_state.request_end_date
+                            if (
+                                request_start_default < request_min_date
+                                or request_start_default > request_max_date
+                            ):
+                                request_start_default = request_min_date
+                            if (
+                                request_end_default < request_min_date
+                                or request_end_default > request_max_date
+                            ):
+                                request_end_default = request_max_date
 
-                        if (
-                            request_start_default < request_min_date
-                            or request_start_default > request_max_date
-                        ):
-                            request_start_default = request_min_date
-                        if (
-                            request_end_default < request_min_date
-                            or request_end_default > request_max_date
-                        ):
-                            request_end_default = request_max_date
-
-                        request_start_date = st.date_input(
-                            "Request Start Date",
-                            request_start_default,
-                            min_value=request_min_date,
-                            max_value=request_max_date,
-                            key="request_start_date_input",
-                        )
-                        request_end_date = st.date_input(
-                            "Request End Date",
-                            request_end_default,
-                            min_value=request_min_date,
-                            max_value=request_max_date,
-                            key="request_end_date_input",
-                        )
-
-                        # Update session state
-                        st.session_state.request_start_date = request_start_date
-                        st.session_state.request_end_date = request_end_date
-
-                        if request_start_date > request_end_date:
-                            st.error(
-                                "Error: Request End Date must fall after Request Start Date."
+                            request_start_date = st.date_input(
+                                "Request Start Date",
+                                request_start_default,
+                                min_value=request_min_date,
+                                max_value=request_max_date,
+                                key="request_start_date_input",
+                            )
+                            request_end_date = st.date_input(
+                                "Request End Date",
+                                request_end_default,
+                                min_value=request_min_date,
+                                max_value=request_max_date,
+                                key="request_end_date_input",
                             )
 
-                        # Filter df_filtered based on RequestDate range
-                        df_filtered = df_filtered[
-                            (
-                                df_filtered["RequestDate"]
-                                >= pd.to_datetime(request_start_date)
-                            )
-                            & (
-                                df_filtered["RequestDate"]
-                                <= pd.to_datetime(request_end_date)
-                            )
-                        ].copy()
+                            # Update session state
+                            st.session_state.request_start_date = request_start_date
+                            st.session_state.request_end_date = request_end_date
+
+                            if request_start_date > request_end_date:
+                                st.error("⚠️ Request End Date must be after Request Start Date.")
+
+                            # Filter df_filtered based on RequestDate range
+                            df_filtered = df_filtered[
+                                (
+                                    df_filtered["RequestDate"]
+                                    >= pd.to_datetime(request_start_date)
+                                )
+                                & (
+                                    df_filtered["RequestDate"]
+                                    <= pd.to_datetime(request_end_date)
+                                )
+                            ]
                 elif "RequestDate" in df_filtered.columns:
-                    st.error("No data available for the selected OrderDate range.")
-                else:
-                    st.error("'RequestDate' column is missing in the data.")
-
-                # Reset All Dates Button
-                st.button("Reset All Dates", on_click=reset_dates)
+                    st.error("❌ No data available for the selected OrderDate range.")
+                
+                st.button("🔄 Reset Dates", on_click=reset_dates, type="secondary")
+                
+                st.markdown("---")
+                
+                # Category Filters Section
+                st.markdown("### 🔍 Category Filters")
 
                 # Filter by Purchase Account
                 if "Purchase Account" in df_filtered.columns:
@@ -855,6 +935,10 @@ def main():
                 # Reset index and drop it
                 last_orders_display.reset_index(drop=True, inplace=True)
 
+                # For large tables, display only top N rows for performance
+                MAX_ROWS_DISPLAY = 500
+                last_orders_display = last_orders_display.head(MAX_ROWS_DISPLAY)
+
                 st.dataframe(last_orders_display, use_container_width=True)
                 pdf_elements.append(
                     ("Last Orders for the period", last_orders_display, None)
@@ -994,30 +1078,97 @@ def main():
             # Generate PDF Report
             if st.button("Generate PDF Report"):
                 buffer = BytesIO()
-                doc = SimpleDocTemplate(buffer, pagesize=letter)
+                doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
                 elements = []
                 styles = getSampleStyleSheet()
+                # Custom styles for headings and bullet lists
+                heading_style = ParagraphStyle(
+                    name="Heading1",
+                    parent=styles["Heading1"],
+                    fontName="Helvetica-Bold",
+                    fontSize=18,
+                    textColor=colors.HexColor("#1f4e79"),
+                    spaceAfter=12,
+                    alignment=TA_CENTER,
+                )
+                subheading_style = ParagraphStyle(
+                    name="Heading2",
+                    parent=styles["Heading2"],
+                    fontName="Helvetica-Bold",
+                    fontSize=14,
+                    textColor=colors.HexColor("#1976d2"),
+                    spaceAfter=8,
+                )
+                bullet_style = ParagraphStyle(
+                    name="Bullet",
+                    parent=styles["Normal"],
+                    fontName="Helvetica",
+                    fontSize=11,
+                    leftIndent=18,
+                    bulletIndent=9,
+                    spaceAfter=4,
+                )
+                normal_style = ParagraphStyle(
+                    name="Normal",
+                    parent=styles["Normal"],
+                    fontName="Helvetica",
+                    fontSize=11,
+                    spaceAfter=6,
+                )
 
                 try:
-                    title = f"TTU Purchase Orders Log Report ({order_start_date} to {order_end_date})"
-                    elements.append(Paragraph(title, styles["Title"]))
-                    elements.append(Spacer(1, 12))
+                    # Add logo if available
+                    try:
+                        elements.append(ReportLabImage("TTU_LOGO.jpg", width=1.5*inch, height=1.5*inch))
+                        elements.append(Spacer(1, 12))
+                    except Exception:
+                        pass
 
-                    # Add metrics
+                    title = f"TTU Purchase Orders Log Report<br/>({order_start_date} to {order_end_date})"
+                    elements.append(Paragraph(title, heading_style))
+                    elements.append(Spacer(1, 18))
+
+                    # Table of Contents
+                    toc_items = [
+                        "Key Performance Indicators",
+                        "PO Count per Requisitioner by Order Date",
+                        "Last Orders for the period",
+                        "Open Orders Amount per Vendor",
+                        "Top 5 Vendors by Amount",
+                        "Top Items by QtyOrdered",
+                    ]
+                    if selected_requisitioner == "All":
+                        toc_items.insert(1, "On-Time Delivery Performance")
+                        toc_items.insert(2, "List of Late Purchase Orders by Request Date")
+                    elements.append(Paragraph("Table of Contents", subheading_style))
+                    for idx, item in enumerate(toc_items, 1):
+                        elements.append(Paragraph(f"{idx}. {item}", bullet_style))
+                    elements.append(Spacer(1, 18))
+
+                    # Key Performance Indicators section
+                    elements.append(Paragraph("Key Performance Indicators", subheading_style))
+                    # Use bullet points for metrics
                     for metric_name, metric_info in metrics.items():
                         text_content = (
                             metric_info.get(metric_name, "N/A")
-                            .replace("<br/>", "\n")
-                            .replace("<br>", "\n")
+                            .replace("<br/>", "<br />")
+                            .replace("<br>", "<br />")
                         )
-                        text = f"<b>{metric_name}:</b>\n{text_content}"
-                        elements.append(Paragraph(text, styles["Normal"]))
-                        elements.append(Spacer(1, 12))
+                        # Split into lines for bullet points
+                        lines = text_content.split("<br />")
+                        if len(lines) > 1:
+                            elements.append(Paragraph(f"<b>{metric_name}:</b>", normal_style))
+                            for line in lines:
+                                elements.append(Paragraph(line, bullet_style, bulletText="•"))
+                        else:
+                            elements.append(Paragraph(f"<b>{metric_name}:</b> {text_content}", normal_style))
+                        elements.append(Spacer(1, 6))
+                    elements.append(Spacer(1, 12))
 
-                    # Add analyses
+                    # Add analyses with headings and consistent table style
                     for title_text, data, img_buf in pdf_elements:
-                        elements.append(Paragraph(title_text, styles["Heading2"]))
-                        elements.append(Spacer(1, 12))
+                        elements.append(Paragraph(title_text, subheading_style))
+                        elements.append(Spacer(1, 8))
                         if isinstance(data, pd.DataFrame) and not data.empty:
                             # Convert date columns to strings to avoid issues in PDF table
                             date_cols = data.select_dtypes(
@@ -1027,14 +1178,20 @@ def main():
                                 data[col] = data[col].astype(str)
 
                             table_data = [list(data.columns)] + data.values.tolist()
-                            t = Table(table_data, repeatRows=1)
+                            t = Table(table_data, repeatRows=1, hAlign="LEFT")
                             t.setStyle(
                                 TableStyle(
                                     [
-                                        ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-                                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4e79")),
+                                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                                        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
                                         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                                        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                                        ("FONTSIZE", (0, 0), (-1, -1), 9),
                                         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                                        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
+                                        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                                        ("TOPPADDING", (0, 0), (-1, -1), 6),
                                     ]
                                 )
                             )
@@ -1044,15 +1201,15 @@ def main():
                             elements.append(
                                 Paragraph(
                                     "No data available for this analysis.",
-                                    styles["Normal"],
+                                    normal_style,
                                 )
                             )
                             elements.append(Spacer(1, 12))
                         if img_buf and isinstance(img_buf, BytesIO):
                             img_buf.seek(0)
                             img = ReportLabImage(img_buf)
-                            img.drawHeight = 4 * inch
-                            img.drawWidth = 6 * inch
+                            img.drawHeight = 3.5 * inch
+                            img.drawWidth = 5.5 * inch
                             elements.append(img)
                             elements.append(Spacer(1, 12))
 
