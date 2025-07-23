@@ -63,7 +63,7 @@ st.markdown(
     
     /* Overall app styling */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: white;
         font-family: 'Inter', sans-serif;
     }
     
@@ -444,10 +444,8 @@ def main():
         # Clean logo display at the top
         try:
             if os.path.exists("TTU_LOGO.jpg"):
-                # Center the logo using columns
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    st.image("TTU_LOGO.jpg", width=160)
+                # Display logo at full sidebar width
+                st.image("TTU_LOGO.jpg", use_container_width=True)
                 st.markdown("<br>", unsafe_allow_html=True)
             else:
                 # Simple text fallback
