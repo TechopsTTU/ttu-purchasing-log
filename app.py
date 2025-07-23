@@ -4,6 +4,7 @@
 # Standard library imports
 import time
 from io import BytesIO
+import os
 
 # Third-party imports
 import streamlit as st
@@ -24,15 +25,6 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import ParagraphStyle
 
-# Verify that the Kaleido package is available for Plotly image export
-try:
-    import kaleido  # noqa: F401
-except ImportError:  # pragma: no cover - handled at runtime
-    st.error(
-        "Kaleido is required for exporting charts as images."
-        "\nInstall it with `pip install kaleido` and restart the app."
-    )
-    st.stop()
 
 # Configure Streamlit page
 st.set_page_config(
@@ -827,6 +819,16 @@ def main():
                                 pd.to_datetime(late_pos["RecDate"])
                                 - pd.to_datetime(late_pos["RequestDate"])
                             ).dt.days
+
+                            fig_late = px.histogram(
+                                late_pos,
+                                x="Days Late",
+                                title="Distribution of Days Late",
+                                nbins=20,
+                            )
+                            st.plotly_chart(fig_late, use_container_width=True)
+                            img_buf = plotly_to_image(fig_late)
+
                             late_pos_display = late_pos[
                                 [
                                     "OrderDate",
@@ -856,7 +858,7 @@ def main():
                                 (
                                     "List of Late Purchase Orders by Request Date",
                                     late_pos_display,
-                                    None,
+                                    img_buf,
                                 )
                             )
                         else:
@@ -900,16 +902,34 @@ def main():
             # Remove index and reset it
             po_counts_final.reset_index(drop=True, inplace=True)
 
+            fig_po_counts = px.bar(
+                po_counts,
+                x="Requisitioner",
+                y="PO Count",
+                title="PO Count per Requisitioner",
+            )
+            st.plotly_chart(fig_po_counts, use_container_width=True)
+            img_buf = plotly_to_image(fig_po_counts)
+
             # Make table page-wide
             st.dataframe(po_counts_final, use_container_width=True)
             pdf_elements.append(
-                ("PO Count per Requisitioner by Order Date", po_counts_final, None)
+                ("PO Count per Requisitioner by Order Date", po_counts_final, img_buf)
             )
 
             # Last Orders for the period
             st.markdown("### Last Orders for the period")
             last_orders = df_filtered.sort_values(by="OrderDate", ascending=False)
             if not last_orders.empty:
+                fig_last_orders = px.bar(
+                    last_orders.head(10),
+                    x="OrderDate",
+                    y="Total",
+                    title="Last Orders by Amount",
+                )
+                st.plotly_chart(fig_last_orders, use_container_width=True)
+                img_buf = plotly_to_image(fig_last_orders)
+
                 last_orders_display = last_orders.copy()
                 if "Total" in last_orders_display.columns:
                     last_orders_display["Total"] = last_orders_display["Total"].apply(
@@ -941,7 +961,7 @@ def main():
 
                 st.dataframe(last_orders_display, use_container_width=True)
                 pdf_elements.append(
-                    ("Last Orders for the period", last_orders_display, None)
+                    ("Last Orders for the period", last_orders_display, img_buf)
                 )
             else:
                 st.write("No orders found.")
@@ -968,14 +988,21 @@ def main():
             # Reset index and drop it
             vendor_amount_no_outliers_display.reset_index(drop=True, inplace=True)
 
-            st.dataframe(
-                vendor_amount_no_outliers_display, use_container_width=True
+            fig_vendor_amount = px.bar(
+                vendor_amount_no_outliers,
+                x="VendorName",
+                y="Total",
+                title="Open Orders Amount per Vendor",
             )
+            st.plotly_chart(fig_vendor_amount, use_container_width=True)
+            img_buf = plotly_to_image(fig_vendor_amount)
+
+            st.dataframe(vendor_amount_no_outliers_display, use_container_width=True)
             pdf_elements.append(
                 (
                     "Open Orders Amount per Vendor",
                     vendor_amount_no_outliers_display,
-                    None,
+                    img_buf,
                 )
             )
 
@@ -1053,9 +1080,7 @@ def main():
                     )
                 )
                 top_items_no_outliers_display.reset_index(drop=True, inplace=True)
-                st.dataframe(
-                    top_items_no_outliers_display, use_container_width=True
-                )
+                st.dataframe(top_items_no_outliers_display, use_container_width=True)
                 img_buf = plotly_to_image(
                     fig_top_items, format="png", width=1000, height=600
                 )
