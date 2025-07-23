@@ -28,9 +28,9 @@ from reportlab.lib.styles import ParagraphStyle
 
 # Configure Plotly to handle browser compatibility issues
 try:
-    # Try to configure Kaleido engine with fallback options
-    pio.kaleido.scope.default_format = "png"
-    pio.kaleido.scope.default_engine = "kaleido"
+    # Try to configure Kaleido engine with fallback options (use newer API)
+    pio.defaults.default_format = "png"
+    pio.defaults.default_engine = "kaleido"
 except:
     # If Kaleido configuration fails, continue without image export
     pass
@@ -218,9 +218,31 @@ def display_logo_title():
     col1, col2 = st.columns([1, 4])
     with col1:
         try:
-            st.image("TTU_LOGO.jpg", width=120)
-        except:
-            st.write("")  # Skip if logo not found
+            # Check if logo file exists and display it
+            if os.path.exists("TTU_LOGO.jpg"):
+                st.image("TTU_LOGO.jpg", width=120)
+            else:
+                # Fallback: show TTU text logo if image not found
+                st.markdown(
+                    """
+                    <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                border-radius: 10px; color: white; font-weight: bold; font-size: 18px;'>
+                        TTU
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+        except Exception as e:
+            # Enhanced fallback with TTU branding
+            st.markdown(
+                """
+                <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            border-radius: 10px; color: white; font-weight: bold; font-size: 18px;'>
+                    TTU
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
     with col2:
         st.markdown(
             """
@@ -405,10 +427,46 @@ def plotly_to_image(fig, format="png", **kwargs):
 
 # Main application logic
 def main():
-    display_logo_title()
+    # Display title only (without logo) in main area
+    st.markdown(
+        """
+        <div style='margin-top: 20px;'>
+            <h1 class="title">TTU Purchase Orders Log</h1>
+            <p style='color: #666; font-size: 16px; margin-top: -10px;'>
+                📊 Purchase Order Analytics & Reporting Dashboard
+            </p>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
     with st.sidebar:
-        # Header with logo
+        # Clean logo display at the top
+        try:
+            if os.path.exists("TTU_LOGO.jpg"):
+                # Center the logo using columns
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    st.image("TTU_LOGO.jpg", width=160)
+                st.markdown("<br>", unsafe_allow_html=True)
+            else:
+                # Simple text fallback
+                st.markdown(
+                    """<div style='text-align: center; padding: 15px; background: #1f4e79; 
+                       border-radius: 8px; color: white; font-weight: bold; margin-bottom: 15px;'>
+                       TTU</div>""",
+                    unsafe_allow_html=True
+                )
+        except Exception:
+            # Simple text fallback
+            st.markdown(
+                """<div style='text-align: center; padding: 15px; background: #1f4e79; 
+                   border-radius: 8px; color: white; font-weight: bold; margin-bottom: 15px;'>
+                   TTU</div>""",
+                unsafe_allow_html=True
+            )
+        
+        # Data Upload Section
         st.markdown("### 📁 Data Upload")
         uploaded_file = st.file_uploader(
             "Choose an Excel file here", 
