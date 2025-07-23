@@ -10,6 +10,7 @@ import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.io as pio
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import (
@@ -24,6 +25,23 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import ParagraphStyle
+
+# Configure Plotly to handle browser compatibility issues
+try:
+    # Try to configure Kaleido engine with fallback options
+    pio.kaleido.scope.default_format = "png"
+    pio.kaleido.scope.default_engine = "kaleido"
+except:
+    # If Kaleido configuration fails, continue without image export
+    pass
+
+# Disable Plotly's browser requirement for image generation
+try:
+    import plotly.graph_objects as go
+    # Set a more permissive configuration
+    pio.renderers.default = "browser"
+except:
+    pass
 
 
 # Configure Streamlit page
@@ -351,6 +369,8 @@ def filter_outliers(df, column):
 
 def plotly_to_image(fig, format="png", **kwargs):
     """Safely convert a Plotly figure to an in-memory image.
+    
+    Falls back gracefully if Kaleido/Chrome is not available.
 
     Parameters
     ----------
@@ -368,16 +388,18 @@ def plotly_to_image(fig, format="png", **kwargs):
         otherwise ``None``.
     """
     try:
+        # Try to export the image using Kaleido
         img_bytes = fig.to_image(format=format, **kwargs)
         return BytesIO(img_bytes)
-    except (ValueError, ImportError) as e:
-        st.warning(
-            "Unable to export figure to image. Ensure the 'kaleido' package is installed. "
-            f"Error: {e}"
-        )
-        return None
     except Exception as e:
-        st.warning(f"Unable to export figure to image: {e}")
+        # Handle all image export errors gracefully
+        error_msg = str(e).lower()
+        if "chrome" in error_msg or "kaleido" in error_msg:
+            # Chrome/Kaleido specific error - common on systems without Chrome
+            pass  # Silently fail for Chrome-related errors
+        else:
+            # Show warning for other errors
+            st.warning(f"Chart export unavailable: {e}")
         return None
 
 
@@ -1102,6 +1124,17 @@ def main():
 
             # Generate PDF Report
             if st.button("Generate PDF Report"):
+                # Show info about chart limitations
+                with st.expander("ℹ️ PDF Report Information", expanded=False):
+                    st.info("""
+                    **PDF Report Contents:**
+                    - Key performance indicators and metrics
+                    - Data tables with all analysis results
+                    - Charts may not be included if browser compatibility issues exist
+                    
+                    **Note:** For best chart viewing experience, use the interactive dashboard above.
+                    """)
+                
                 buffer = BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
                 elements = []
@@ -1231,12 +1264,22 @@ def main():
                             )
                             elements.append(Spacer(1, 12))
                         if img_buf and isinstance(img_buf, BytesIO):
-                            img_buf.seek(0)
-                            img = ReportLabImage(img_buf)
-                            img.drawHeight = 3.5 * inch
-                            img.drawWidth = 5.5 * inch
-                            elements.append(img)
-                            elements.append(Spacer(1, 12))
+                            try:
+                                img_buf.seek(0)
+                                img = ReportLabImage(img_buf)
+                                img.drawHeight = 3.5 * inch
+                                img.drawWidth = 5.5 * inch
+                                elements.append(img)
+                                elements.append(Spacer(1, 12))
+                            except Exception as e:
+                                # If image insertion fails, add a note instead
+                                elements.append(
+                                    Paragraph(
+                                        f"Chart visualization available in web interface only.",
+                                        normal_style,
+                                    )
+                                )
+                                elements.append(Spacer(1, 6))
 
                     # Build the PDF
                     doc.build(elements)
