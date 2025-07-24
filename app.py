@@ -401,31 +401,28 @@ def plotly_to_image(fig, format="png", **kwargs):
         return None
 
 
-# Calculate descriptive statistics for numeric columns
-def descriptive_statistics(df: pd.DataFrame) -> pd.DataFrame:
-    """Return summary statistics for all numeric columns."""
-    numeric_cols = df.select_dtypes(include="number").columns
-    if len(numeric_cols) == 0:
+# Generate matrix of on-time delivery metrics by GL account (Purchase Account)
+def otd_matrix_by_account(df: pd.DataFrame) -> pd.DataFrame:
+    """Return on-time and late counts with percentage by Purchase Account."""
+    required_cols = {"RecDate", "RequestDate", "Purchase Account"}
+    if not required_cols.issubset(df.columns):
         return pd.DataFrame()
-    stats = (
-        df[numeric_cols]
-        .agg(["mean", "median", "std", "min", "max"])
-        .round(2)
-        .transpose()
+
+    temp = df.copy()
+    temp["RecDate"] = pd.to_datetime(temp["RecDate"]).dt.date
+    temp["RequestDate"] = pd.to_datetime(temp["RequestDate"]).dt.date
+    temp["On_Time"] = temp["RecDate"] <= temp["RequestDate"]
+
+    summary = (
+        temp.groupby("Purchase Account")["On_Time"]
+        .agg(On_Time="sum", Late=lambda x: (~x).sum())
+        .reset_index()
     )
-    stats.rename(
-        columns={
-            "mean": "Mean",
-            "median": "Median",
-            "std": "Std Dev",
-            "min": "Min",
-            "max": "Max",
-        },
-        inplace=True,
-    )
-    stats.reset_index(inplace=True)
-    stats.rename(columns={"index": "Column"}, inplace=True)
-    return stats
+    summary["On-Time %"] = (
+        summary["On_Time"] / (summary["On_Time"] + summary["Late"]) * 100
+    ).round(2)
+    summary.rename(columns={"On_Time": "On-Time"}, inplace=True)
+    return summary
 
 
 # Main application logic
@@ -800,13 +797,6 @@ def main():
 
             pdf_elements = []
 
-            # Display descriptive statistics for numeric columns
-            stats_df = descriptive_statistics(df_filtered)
-            if not stats_df.empty:
-                st.markdown("### Descriptive Statistics")
-                st.dataframe(stats_df, use_container_width=True)
-                pdf_elements.append(("Descriptive Statistics", stats_df, None))
-
             # Distribution of order totals
             if "Total" in df_filtered.columns:
                 fig_total_dist = px.histogram(
@@ -968,6 +958,15 @@ def main():
                         )
                 else:
                     st.error("'RecDate' and/or 'RequestDate' columns are missing.")
+
+            # On-Time Delivery Matrix by Purchase Account
+            matrix_df = otd_matrix_by_account(df_filtered)
+            if not matrix_df.empty:
+                st.markdown("### On-Time Delivery by Purchase Account")
+                st.dataframe(matrix_df, use_container_width=True)
+                pdf_elements.append(
+                    ("On-Time Delivery by Purchase Account", matrix_df, None)
+                )
 
             # PO Counts per Requisitioner
             st.markdown("### PO Count per Requisitioner by Order Date")
