@@ -217,32 +217,8 @@ st.markdown(
 def display_logo_title():
     col1, col2 = st.columns([1, 4])
     with col1:
-        try:
-            # Check if logo file exists and display it
-            if os.path.exists("TTU_LOGO.jpg"):
-                st.image("TTU_LOGO.jpg", width=120)
-            else:
-                # Fallback: show TTU text logo if image not found
-                st.markdown(
-                    """
-                    <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                                border-radius: 10px; color: white; font-weight: bold; font-size: 18px;'>
-                        TTU
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-        except Exception as e:
-            # Enhanced fallback with TTU branding
-            st.markdown(
-                """
-                <div style='text-align: center; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                            border-radius: 10px; color: white; font-weight: bold; font-size: 18px;'>
-                    TTU
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+        if os.path.exists("TTU_LOGO.jpg"):
+            st.image("TTU_LOGO.jpg", width=120)
     with col2:
         st.markdown(
             """
@@ -469,27 +445,10 @@ def main():
 
     with st.sidebar:
         # Clean logo display at the top
-        try:
-            if os.path.exists("TTU_LOGO.jpg"):
-                # Display logo at full sidebar width
-                st.image("TTU_LOGO.jpg", use_container_width=True)
-                st.markdown("<br>", unsafe_allow_html=True)
-            else:
-                # Simple text fallback
-                st.markdown(
-                    """<div style='text-align: center; padding: 15px; background: #1f4e79; 
-                       border-radius: 8px; color: white; font-weight: bold; margin-bottom: 15px;'>
-                       TTU</div>""",
-                    unsafe_allow_html=True
-                )
-        except Exception:
-            # Simple text fallback
-            st.markdown(
-                """<div style='text-align: center; padding: 15px; background: #1f4e79; 
-                   border-radius: 8px; color: white; font-weight: bold; margin-bottom: 15px;'>
-                   TTU</div>""",
-                unsafe_allow_html=True
-            )
+        if os.path.exists("TTU_LOGO.jpg"):
+            # Display logo at full sidebar width
+            st.image("TTU_LOGO.jpg", use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
         
         # Data Upload Section
         st.markdown("### 📁 Data Upload")
