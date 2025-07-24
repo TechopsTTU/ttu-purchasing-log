@@ -913,87 +913,100 @@ def main():
                     )
 
                     # Instead of a pie chart, use a bar chart
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        fig_delivery = px.bar(
-                            delivery_data,
-                            x="Status",
-                            y="Count",
-                            title="On-Time Delivery Performance",
-                            color="Status",
-                            color_discrete_map={"On-Time": "green", "Late": "red"},
-                            text="Count",
+                    fig_delivery = px.bar(
+                        delivery_data,
+                        x="Status",
+                        y="Count",
+                        title="On-Time Delivery Performance",
+                        color="Status",
+                        color_discrete_map={"On-Time": "green", "Late": "red"},
+                        text="Count",
+                    )
+                    fig_delivery.update_layout(showlegend=False)
+
+                    if not late_pos.empty:
+                        late_pos["Days Late"] = (
+                            pd.to_datetime(late_pos["RecDate"])
+                            - pd.to_datetime(late_pos["RequestDate"])
+                        ).dt.days
+
+                        fig_late = px.histogram(
+                            late_pos,
+                            x="Days Late",
+                            title="Distribution of Days Late",
+                            nbins=20,
                         )
-                        fig_delivery.update_layout(showlegend=False)
-                        st.plotly_chart(fig_delivery, use_container_width=True)
-                        img_buf = plotly_to_image(fig_delivery)
+                        img_buf_late = plotly_to_image(fig_late)
+
+                        late_pos_display = late_pos[
+                            [
+                                "OrderDate",
+                                "PONumber",
+                                "Total",
+                                "Days Late",
+                                "Requisitioner",
+                            ]
+                        ].copy()
+                        late_pos_display.rename(
+                            columns={"Total": "Total Amt"}, inplace=True
+                        )
+                        late_pos_display["Total Amt"] = late_pos_display[
+                            "Total Amt"
+                        ].apply(lambda x: f"${x:,.2f}")
+
+                        # Remove time from 'OrderDate' column
+                        late_pos_display["OrderDate"] = pd.to_datetime(
+                            late_pos_display["OrderDate"]
+                        ).dt.date
+
+                        # Reset index and drop it
+                        late_pos_display.reset_index(drop=True, inplace=True)
+
+                        img_buf_delivery = plotly_to_image(fig_delivery)
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.plotly_chart(fig_delivery, use_container_width=True)
+                        with col2:
+                            st.plotly_chart(fig_late, use_container_width=True)
+
+                        st.markdown("#### List of Late Purchase Orders by Request Date")
+                        st.dataframe(late_pos_display, use_container_width=True)
+
                         pdf_elements.append(
                             (
                                 "On-Time Delivery Performance",
                                 delivery_data,
-                                img_buf,
+                                img_buf_delivery,
                             )
                         )
-
-                    # List of Late Purchase Orders
-                    with col2:
-                        st.markdown("#### List of Late Purchase Orders by Request Date")
-                        if not late_pos.empty:
-                            late_pos["Days Late"] = (
-                                pd.to_datetime(late_pos["RecDate"])
-                                - pd.to_datetime(late_pos["RequestDate"])
-                            ).dt.days
-
-                            fig_late = px.histogram(
-                                late_pos,
-                                x="Days Late",
-                                title="Distribution of Days Late",
-                                nbins=20,
+                        pdf_elements.append(
+                            (
+                                "List of Late Purchase Orders by Request Date",
+                                late_pos_display,
+                                img_buf_late,
                             )
-                            st.plotly_chart(fig_late, use_container_width=True)
-                            img_buf = plotly_to_image(fig_late)
-
-                            late_pos_display = late_pos[
-                                [
-                                    "OrderDate",
-                                    "PONumber",
-                                    "Total",
-                                    "Days Late",
-                                    "Requisitioner",
-                                ]
-                            ].copy()
-                            late_pos_display.rename(
-                                columns={"Total": "Total Amt"}, inplace=True
+                        )
+                    else:
+                        img_buf_delivery = plotly_to_image(fig_delivery)
+                        col1, _ = st.columns([1, 1])
+                        with col1:
+                            st.plotly_chart(fig_delivery, use_container_width=True)
+                        st.write("No late purchase orders found.")
+                        pdf_elements.append(
+                            (
+                                "On-Time Delivery Performance",
+                                delivery_data,
+                                img_buf_delivery,
                             )
-                            late_pos_display["Total Amt"] = late_pos_display[
-                                "Total Amt"
-                            ].apply(lambda x: f"${x:,.2f}")
-
-                            # Remove time from 'OrderDate' column
-                            late_pos_display["OrderDate"] = pd.to_datetime(
-                                late_pos_display["OrderDate"]
-                            ).dt.date
-
-                            # Reset index and drop it
-                            late_pos_display.reset_index(drop=True, inplace=True)
-
-                            st.dataframe(late_pos_display, use_container_width=True)
-                            pdf_elements.append(
-                                (
-                                    "List of Late Purchase Orders by Request Date",
-                                    late_pos_display,
-                                    img_buf,
-                                )
+                        )
+                        pdf_elements.append(
+                            (
+                                "List of Late Purchase Orders by Request Date",
+                                pd.DataFrame(),
+                                None,
                             )
-                        else:
-                            st.write("No late purchase orders found.")
-                            pdf_elements.append(
-                                (
-                                    "List of Late Purchase Orders by Request Date",
-                                    pd.DataFrame(),
-                                    None,
-                                )
-                            )
+                        )
                 else:
                     st.error("'RecDate' and/or 'RequestDate' columns are missing.")
 
@@ -1149,23 +1162,16 @@ def main():
                 color_continuous_scale=px.colors.sequential.Plasma,
             )
 
-            # Arrange chart and table side by side
-            col1, col2 = st.columns(2)
-            with col1:
-                st.plotly_chart(fig_top_vendors, use_container_width=True)
-            with col2:
-                top_vendors_display = top_vendors.copy()
-                top_vendors_display["Total"] = top_vendors_display["Total"].apply(
-                    lambda x: f"${x:,.2f}"
-                )
-                top_vendors_display.reset_index(drop=True, inplace=True)
-                st.dataframe(top_vendors_display, use_container_width=True)
-                img_buf = plotly_to_image(
-                    fig_top_vendors, format="png", width=800, height=600
-                )
-                pdf_elements.append(
-                    ("Top 5 Vendors by Amount", top_vendors_display, img_buf)
-                )
+            # Display chart and table stacked for full width
+            st.plotly_chart(fig_top_vendors, use_container_width=True)
+            top_vendors_display = top_vendors.copy()
+            top_vendors_display["Total"] = top_vendors_display["Total"].apply(
+                lambda x: f"${x:,.2f}"
+            )
+            top_vendors_display.reset_index(drop=True, inplace=True)
+            st.dataframe(top_vendors_display, use_container_width=True)
+            img_buf = plotly_to_image(fig_top_vendors, format="png", width=800, height=600)
+            pdf_elements.append(("Top 5 Vendors by Amount", top_vendors_display, img_buf))
 
             # Top Items by QtyOrdered
             st.markdown("### Top Items by QtyOrdered")
@@ -1192,29 +1198,22 @@ def main():
                 color_continuous_scale="Agsunset",
             )
 
-            # Arrange chart and table side by side
-            col1, col2 = st.columns(2)
-            with col1:
-                st.plotly_chart(fig_top_items, use_container_width=True)
-            with col2:
-                top_items_no_outliers_display = top_items_no_outliers.copy()
-                top_items_no_outliers_display["QtyOrdered"] = (
-                    top_items_no_outliers_display["QtyOrdered"].apply(
-                        lambda x: f"{x:,.0f}"
-                    )
+            # Display chart and table stacked for full width
+            st.plotly_chart(fig_top_items, use_container_width=True)
+            top_items_no_outliers_display = top_items_no_outliers.copy()
+            top_items_no_outliers_display["QtyOrdered"] = (
+                top_items_no_outliers_display["QtyOrdered"].apply(lambda x: f"{x:,.0f}")
+            )
+            top_items_no_outliers_display.reset_index(drop=True, inplace=True)
+            st.dataframe(top_items_no_outliers_display, use_container_width=True)
+            img_buf = plotly_to_image(fig_top_items, format="png", width=1000, height=600)
+            pdf_elements.append(
+                (
+                    "Top Items by QtyOrdered",
+                    top_items_no_outliers_display,
+                    img_buf,
                 )
-                top_items_no_outliers_display.reset_index(drop=True, inplace=True)
-                st.dataframe(top_items_no_outliers_display, use_container_width=True)
-                img_buf = plotly_to_image(
-                    fig_top_items, format="png", width=1000, height=600
-                )
-                pdf_elements.append(
-                    (
-                        "Top Items by QtyOrdered",
-                        top_items_no_outliers_display,
-                        img_buf,
-                    )
-                )
+            )
 
             # Processing time
             processing_end_time = time.time()
