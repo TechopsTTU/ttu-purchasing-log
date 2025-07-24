@@ -425,6 +425,33 @@ def plotly_to_image(fig, format="png", **kwargs):
         return None
 
 
+# Calculate descriptive statistics for numeric columns
+def descriptive_statistics(df: pd.DataFrame) -> pd.DataFrame:
+    """Return summary statistics for all numeric columns."""
+    numeric_cols = df.select_dtypes(include="number").columns
+    if len(numeric_cols) == 0:
+        return pd.DataFrame()
+    stats = (
+        df[numeric_cols]
+        .agg(["mean", "median", "std", "min", "max"])
+        .round(2)
+        .transpose()
+    )
+    stats.rename(
+        columns={
+            "mean": "Mean",
+            "median": "Median",
+            "std": "Std Dev",
+            "min": "Min",
+            "max": "Max",
+        },
+        inplace=True,
+    )
+    stats.reset_index(inplace=True)
+    stats.rename(columns={"index": "Column"}, inplace=True)
+    return stats
+
+
 # Main application logic
 def main():
     # Display title only (without logo) in main area
@@ -813,6 +840,25 @@ def main():
             # Removed 'Detailed Analyses' subheader as per instruction
 
             pdf_elements = []
+
+            # Display descriptive statistics for numeric columns
+            stats_df = descriptive_statistics(df_filtered)
+            if not stats_df.empty:
+                st.markdown("### Descriptive Statistics")
+                st.dataframe(stats_df, use_container_width=True)
+                pdf_elements.append(("Descriptive Statistics", stats_df, None))
+
+            # Distribution of order totals
+            if "Total" in df_filtered.columns:
+                fig_total_dist = px.histogram(
+                    df_filtered,
+                    x="Total",
+                    nbins=30,
+                    title="Distribution of Order Totals",
+                )
+                st.plotly_chart(fig_total_dist, use_container_width=True)
+                img_buf = plotly_to_image(fig_total_dist)
+                pdf_elements.append(("Order Total Distribution", pd.DataFrame(), img_buf))
 
             # Only show On-Time Delivery Performance if no requisitioner is selected
             if selected_requisitioner == "All":

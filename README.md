@@ -9,6 +9,7 @@ TTU Purchase Orders Log is a web application built with [Streamlit](https://stre
 - Removes outliers from charts using the Interquartile Range (IQR) method
 - Interactive graphs powered by Plotly
 - Option to export analysis results to a PDF report
+- Provides descriptive statistics and distribution charts for numeric data
 
 ## Requirements
 
