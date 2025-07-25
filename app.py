@@ -444,7 +444,7 @@ def main():
         # Clean logo display at the top
         if os.path.exists("TTU_LOGO.jpg"):
             # Display logo at full sidebar width
-            st.image("TTU_LOGO.jpg", use_container_width=True)
+            st.image("TTU_LOGO.jpg", use_column_width=True)
             st.markdown("<br>", unsafe_allow_html=True)
         
         # Data Upload Section
