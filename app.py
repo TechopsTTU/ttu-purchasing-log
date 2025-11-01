@@ -9,8 +9,6 @@ import os
 # Third-party imports
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.io as pio
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import (
@@ -25,24 +23,6 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import ParagraphStyle
-
-# Configure Plotly to handle browser compatibility issues
-try:
-    # Try to configure Kaleido engine with fallback options (use newer API)
-    pio.defaults.default_format = "png"
-    pio.defaults.default_engine = "kaleido"
-except:
-    # If Kaleido configuration fails, continue without image export
-    pass
-
-# Disable Plotly's browser requirement for image generation
-try:
-    import plotly.graph_objects as go
-    # Set a more permissive configuration
-    pio.renderers.default = "browser"
-except:
-    pass
-
 
 # Configure Streamlit page
 st.set_page_config(
@@ -126,7 +106,7 @@ st.markdown(
         white-space: pre-wrap;
         color: #1f4e79;
     }
-    
+
     /* Enhanced percentage styling */
     .percentage-value {
         font-size: 3rem;
@@ -135,7 +115,40 @@ st.markdown(
         margin: 0;
         text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
     }
-    
+
+    .progress-wrapper {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+    .progress-track {
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        background: #e9ecef;
+        overflow: hidden;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #28a745 0%, #8bc34a 100%);
+        transition: width 0.6s ease;
+    }
+
+    .insight-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(31, 78, 121, 0.08);
+        color: #1f4e79;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-weight: 500;
+        margin: 6px 6px 6px 0;
+    }
+
     /* Sidebar styling */
     .css-1d391kg {
         background: linear-gradient(180deg, #1f4e79 0%, #2c5aa0 100%);
@@ -354,53 +367,18 @@ def display_index_cards(metrics):
         )
 
 
-# Calculate outliers using IQR method
-def filter_outliers(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    df_filtered = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return df_filtered
-
-
-def plotly_to_image(fig, format="png", **kwargs):
-    """Safely convert a Plotly figure to an in-memory image.
-    
-    Falls back gracefully if Kaleido/Chrome is not available.
-
-    Parameters
-    ----------
-    fig : plotly.graph_objs.Figure
-        The Plotly figure to convert.
-    format : str, optional
-        Image format understood by Kaleido (default ``"png"``).
-    kwargs : Any
-        Additional keyword arguments passed to ``fig.to_image``.
-
-    Returns
-    -------
-    BytesIO or None
-        A buffer containing the image data if conversion succeeds,
-        otherwise ``None``.
-    """
+def format_currency(value) -> str:
     try:
-        # Try to export the image using Kaleido
-        img_bytes = fig.to_image(format=format, **kwargs)
-        return BytesIO(img_bytes)
-    except Exception as e:
-        # Handle all image export errors gracefully
-        error_msg = str(e).lower()
-        if "chrome" in error_msg or "kaleido" in error_msg:
-            # Chrome/Kaleido specific error - common on systems without Chrome
-            pass  # Silently fail for Chrome-related errors
-        else:
-            # Show warning for other errors
-            st.warning(f"Chart export unavailable: {e}")
-        return None
+        return f"${value:,.2f}"
+    except (TypeError, ValueError):
+        return "$0.00"
 
 
+def format_percentage(value) -> str:
+    try:
+        return f"{value:.2f}%"
+    except (TypeError, ValueError):
+        return "0.00%"
 # Generate matrix of on-time delivery metrics by GL account (Purchase Account)
 def otd_matrix_by_account(df: pd.DataFrame) -> pd.DataFrame:
     """Return on-time and late counts with percentage by Purchase Account."""
@@ -795,383 +773,461 @@ def main():
 
             # Removed 'Detailed Analyses' subheader as per instruction
 
-            pdf_elements = []
+            pdf_sections = []
 
-            # Distribution of order totals
-            if "Total" in df_filtered.columns:
-                fig_total_dist = px.histogram(
-                    df_filtered,
-                    x="Total",
-                    nbins=30,
-                    title="Distribution of Order Totals",
+            delivery_summary_pdf = pd.DataFrame()
+            delivery_summary_display = pd.DataFrame()
+            late_pos_display = pd.DataFrame()
+            late_pos_pdf = pd.DataFrame()
+            late_account_summary_pdf = pd.DataFrame()
+            late_requisitioner_summary_pdf = pd.DataFrame()
+            delivery_insights = []
+            delivery_ready = False
+            delivery_message = None
+            on_time_percentage = 0.0
+            late_percentage = 0.0
+            on_time_count = 0
+            late_count = 0
+            total_pos = 0
+            late_df = pd.DataFrame()
+
+            if {"RecDate", "RequestDate"}.issubset(df_filtered.columns):
+                delivery_df = df_filtered.copy()
+                delivery_df["RecDate"] = pd.to_datetime(
+                    delivery_df["RecDate"], errors="coerce"
                 )
-                st.plotly_chart(fig_total_dist, use_container_width=True)
-                img_buf = plotly_to_image(fig_total_dist)
-                pdf_elements.append(("Order Total Distribution", pd.DataFrame(), img_buf))
+                delivery_df["RequestDate"] = pd.to_datetime(
+                    delivery_df["RequestDate"], errors="coerce"
+                )
+                delivery_df.dropna(subset=["RecDate", "RequestDate"], inplace=True)
 
-            # Only show On-Time Delivery Performance if no requisitioner is selected
-            if selected_requisitioner == "All":
-                # On-Time Delivery Performance
-                if (
-                    "RecDate" in df_filtered.columns
-                    and "RequestDate" in df_filtered.columns
-                ):
-                    # Remove time from 'RecDate' and 'RequestDate' columns
-                    df_filtered["RecDate"] = pd.to_datetime(
-                        df_filtered["RecDate"]
-                    ).dt.date
-                    df_filtered["RequestDate"] = pd.to_datetime(
-                        df_filtered["RequestDate"]
-                    ).dt.date
-
-                    on_time_pos = df_filtered[
-                        df_filtered["RecDate"] <= df_filtered["RequestDate"]
-                    ]
-                    late_pos = df_filtered[
-                        df_filtered["RecDate"] > df_filtered["RequestDate"]
-                    ]
-                    on_time_count = on_time_pos["PONumber"].nunique()
-                    late_count = late_pos["PONumber"].nunique()
+                if not delivery_df.empty:
+                    delivery_df["On_Time"] = delivery_df["RecDate"] <= delivery_df["RequestDate"]
+                    on_time_count = delivery_df[delivery_df["On_Time"]]["PONumber"].nunique()
+                    late_df = delivery_df[~delivery_df["On_Time"]].copy()
+                    late_count = late_df["PONumber"].nunique()
                     total_pos = on_time_count + late_count
+
                     if total_pos > 0:
                         on_time_percentage = (on_time_count / total_pos) * 100
+                        late_percentage = 100 - on_time_percentage
+                        delivery_ready = True
                     else:
-                        on_time_percentage = 0
+                        delivery_message = (
+                            "No purchase orders have both request and receive dates within the selected filters."
+                        )
+                        late_df = pd.DataFrame()
 
-                    on_time_percentage_formatted = f"{on_time_percentage:.2f}%"
-                    late_percentage = 100 - on_time_percentage
-                    late_percentage_formatted = f"{late_percentage:.2f}%"
-
-                    # Display index card with On-Time Delivery Percentage
-                    st.markdown(
-                        f"""
-                        <div class="card" style='background-color: #AED581; width: 100%;'>
-                            <h3>On Time Delivery</h3>
-                            <p class="percentage-value">{on_time_percentage_formatted}</p>
-                            <p>On-Time: {on_time_percentage_formatted} | Late: {late_percentage_formatted}</p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-
-                    delivery_data = pd.DataFrame(
+                    delivery_summary_pdf = pd.DataFrame(
                         {
-                            "Status": ["On-Time", "Late"],
-                            "Count": [on_time_count, late_count],
+                            "Metric": [
+                                "On-Time Orders",
+                                "Late Orders",
+                                "Total Orders",
+                                "On-Time %",
+                                "Late %",
+                            ],
+                            "Value": [
+                                on_time_count if total_pos > 0 else 0,
+                                late_count if total_pos > 0 else 0,
+                                total_pos,
+                                round(on_time_percentage, 2) if total_pos > 0 else 0.0,
+                                round(late_percentage, 2) if total_pos > 0 else 0.0,
+                            ],
                         }
                     )
 
-                    # Instead of a pie chart, use a bar chart
-                    fig_delivery = px.bar(
-                        delivery_data,
-                        x="Status",
-                        y="Count",
-                        title="On-Time Delivery Performance",
-                        color="Status",
-                        color_discrete_map={"On-Time": "green", "Late": "red"},
-                        text="Count",
-                    )
-                    fig_delivery.update_layout(showlegend=False)
+                    delivery_summary_display = delivery_summary_pdf.copy()
+                    delivery_summary_display.loc[0:2, "Value"] = delivery_summary_display.loc[
+                        0:2, "Value"
+                    ].map(lambda x: f"{int(x):,}")
+                    delivery_summary_display.loc[3:4, "Value"] = delivery_summary_display.loc[
+                        3:4, "Value"
+                    ].map(format_percentage)
 
-                    if not late_pos.empty:
-                        late_pos["Days Late"] = (
-                            pd.to_datetime(late_pos["RecDate"])
-                            - pd.to_datetime(late_pos["RequestDate"])
-                        ).dt.days
-
-                        fig_late = px.histogram(
-                            late_pos,
-                            x="Days Late",
-                            title="Distribution of Days Late",
-                            nbins=20,
+                    if not late_df.empty:
+                        late_df["Days Late"] = (late_df["RecDate"] - late_df["RequestDate"]).dt.days
+                        late_account_summary_pdf = (
+                            late_df.groupby("Purchase Account")
+                            .agg(
+                                Late_Orders=("PONumber", "nunique"),
+                                Late_Lines=("PONumber", "size"),
+                                Avg_Days_Late=("Days Late", "mean"),
+                                Max_Days_Late=("Days Late", "max"),
+                                Late_Order_Value=("Total", "sum"),
+                            )
+                            .reset_index()
                         )
-                        img_buf_late = plotly_to_image(fig_late)
-
-                        late_pos_display = late_pos[
-                            [
-                                "OrderDate",
-                                "PONumber",
-                                "Total",
-                                "Days Late",
-                                "Requisitioner",
-                            ]
-                        ].copy()
-                        late_pos_display.rename(
-                            columns={"Total": "Total Amt"}, inplace=True
+                        late_account_summary_pdf.sort_values(
+                            by=["Late_Orders", "Late_Order_Value"], ascending=False, inplace=True
                         )
-                        late_pos_display["Total Amt"] = late_pos_display[
-                            "Total Amt"
-                        ].apply(lambda x: f"${x:,.2f}")
+                        late_account_summary_pdf["Avg_Days_Late"] = late_account_summary_pdf[
+                            "Avg_Days_Late"
+                        ].round(1)
+                        late_account_summary_pdf.rename(
+                            columns={
+                                "Late_Orders": "Late Orders",
+                                "Late_Lines": "Late Lines",
+                                "Avg_Days_Late": "Avg Days Late",
+                                "Max_Days_Late": "Max Days Late",
+                                "Late_Order_Value": "Late Order Value",
+                            },
+                            inplace=True,
+                        )
+                        late_account_summary_pdf["Max Days Late"] = late_account_summary_pdf[
+                            "Max Days Late"
+                        ].fillna(0).astype(int)
 
-                        # Remove time from 'OrderDate' column
-                        late_pos_display["OrderDate"] = pd.to_datetime(
-                            late_pos_display["OrderDate"]
-                        ).dt.date
+                        late_requisitioner_summary_pdf = (
+                            late_df.groupby("Requisitioner")
+                            .agg(
+                                Late_Orders=("PONumber", "nunique"),
+                                Late_Lines=("PONumber", "size"),
+                                Avg_Days_Late=("Days Late", "mean"),
+                                Max_Days_Late=("Days Late", "max"),
+                                Late_Order_Value=("Total", "sum"),
+                            )
+                            .reset_index()
+                        )
+                        late_requisitioner_summary_pdf.sort_values(
+                            by=["Late_Orders", "Late_Order_Value"], ascending=False, inplace=True
+                        )
+                        late_requisitioner_summary_pdf["Avg_Days_Late"] = (
+                            late_requisitioner_summary_pdf["Avg_Days_Late"].round(1)
+                        )
+                        late_requisitioner_summary_pdf.rename(
+                            columns={
+                                "Late_Orders": "Late Orders",
+                                "Late_Lines": "Late Lines",
+                                "Avg_Days_Late": "Avg Days Late",
+                                "Max_Days_Late": "Max Days Late",
+                                "Late_Order_Value": "Late Order Value",
+                            },
+                            inplace=True,
+                        )
+                        late_requisitioner_summary_pdf["Max Days Late"] = late_requisitioner_summary_pdf[
+                            "Max Days Late"
+                        ].fillna(0).astype(int)
 
-                        # Reset index and drop it
+                        detail_columns = [
+                            "OrderDate",
+                            "RequestDate",
+                            "RecDate",
+                            "PONumber",
+                            "Purchase Account",
+                            "Requisitioner",
+                            "VendorName",
+                            "Total",
+                            "Days Late",
+                        ]
+                        available_detail_columns = [
+                            col for col in detail_columns if col in late_df.columns
+                        ]
+                        late_pos_display = late_df[available_detail_columns].copy()
+                        for col in ["OrderDate", "RequestDate", "RecDate"]:
+                            if col in late_pos_display.columns:
+                                late_pos_display[col] = pd.to_datetime(
+                                    late_pos_display[col], errors="coerce"
+                                ).dt.date
+                        if "Total" in late_pos_display.columns:
+                            late_pos_display.rename(columns={"Total": "Total Amount"}, inplace=True)
+                        late_pos_display.sort_values(by="Days Late", ascending=False, inplace=True)
                         late_pos_display.reset_index(drop=True, inplace=True)
-
-                        img_buf_delivery = plotly_to_image(fig_delivery)
-
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.plotly_chart(fig_delivery, use_container_width=True)
-                        with col2:
-                            st.plotly_chart(fig_late, use_container_width=True)
-
-                        st.markdown("#### List of Late Purchase Orders by Request Date")
-                        st.dataframe(late_pos_display, use_container_width=True)
-
-                        pdf_elements.append(
-                            (
-                                "On-Time Delivery Performance",
-                                delivery_data,
-                                img_buf_delivery,
+                        late_pos_pdf = late_pos_display.copy()
+                        if "Total Amount" in late_pos_pdf.columns:
+                            late_pos_pdf["Total Amount"] = late_pos_pdf["Total Amount"].apply(
+                                format_currency
                             )
+                        if "Total Amount" in late_pos_display.columns:
+                            late_pos_display["Total Amount"] = late_pos_display["Total Amount"].apply(
+                                format_currency
+                            )
+
+                        if not late_account_summary_pdf.empty:
+                            top_account = late_account_summary_pdf.iloc[0]
+                            delivery_insights.append(
+                                f"Purchase Account {top_account['Purchase Account']} drives {int(top_account['Late Orders'])} late orders averaging {top_account['Avg Days Late']:.1f} days late."
+                            )
+                        if not late_requisitioner_summary_pdf.empty:
+                            top_req = late_requisitioner_summary_pdf.iloc[0]
+                            delivery_insights.append(
+                                f"{top_req['Requisitioner']} has {int(top_req['Late Orders'])} late orders with up to {int(top_req['Max Days Late'])} days delay."
+                            )
+                else:
+                    delivery_message = (
+                        "No delivery performance data is available after removing rows with missing dates."
+                    )
+            else:
+                delivery_message = "'RecDate' and/or 'RequestDate' columns are missing."
+
+            matrix_df = otd_matrix_by_account(df_filtered)
+
+            account_value_summary_pdf = pd.DataFrame()
+            if "Purchase Account" in df_filtered.columns:
+                account_group = df_filtered.groupby("Purchase Account")
+                account_value_summary_pdf = account_group["PONumber"].nunique().rename("Unique POs").to_frame()
+                account_value_summary_pdf["Order Lines"] = account_group.size()
+                account_value_summary_pdf["Total Value"] = account_group["Total"].sum()
+                if "Amt" in df_filtered.columns:
+                    account_value_summary_pdf["Open Amount"] = account_group["Amt"].sum()
+                else:
+                    account_value_summary_pdf["Open Amount"] = 0.0
+                account_value_summary_pdf["Avg Order Value"] = (
+                    account_value_summary_pdf["Total Value"]
+                    / account_value_summary_pdf["Unique POs"].replace(0, pd.NA)
+                )
+                account_value_summary_pdf["Avg Order Value"] = account_value_summary_pdf[
+                    "Avg Order Value"
+                ].fillna(0.0)
+                account_value_summary_pdf.reset_index(inplace=True)
+                account_value_summary_pdf.sort_values(
+                    by="Total Value", ascending=False, inplace=True
+                )
+                account_value_summary_pdf["Unique POs"] = account_value_summary_pdf[
+                    "Unique POs"
+                ].astype(int)
+                account_value_summary_pdf["Order Lines"] = account_value_summary_pdf[
+                    "Order Lines"
+                ].astype(int)
+
+            requisitioner_summary_pdf = pd.DataFrame()
+            if "Requisitioner" in df_filtered.columns:
+                req_group = df_filtered.groupby("Requisitioner")
+                requisitioner_summary_pdf = req_group["PONumber"].nunique().rename("Unique POs").to_frame()
+                requisitioner_summary_pdf["Order Lines"] = req_group.size()
+                requisitioner_summary_pdf["Total Value"] = req_group["Total"].sum()
+                if "Amt" in df_filtered.columns:
+                    requisitioner_summary_pdf["Open Amount"] = req_group["Amt"].sum()
+                else:
+                    requisitioner_summary_pdf["Open Amount"] = 0.0
+                requisitioner_summary_pdf["Avg Order Value"] = (
+                    requisitioner_summary_pdf["Total Value"]
+                    / requisitioner_summary_pdf["Unique POs"].replace(0, pd.NA)
+                )
+                requisitioner_summary_pdf["Avg Order Value"] = requisitioner_summary_pdf[
+                    "Avg Order Value"
+                ].fillna(0.0)
+
+                if not late_requisitioner_summary_pdf.empty:
+                    late_req_join = late_requisitioner_summary_pdf.set_index("Requisitioner")[
+                        ["Late Orders", "Late Lines", "Avg Days Late", "Max Days Late", "Late Order Value"]
+                    ]
+                    requisitioner_summary_pdf = requisitioner_summary_pdf.join(
+                        late_req_join, how="left"
+                    )
+                else:
+                    requisitioner_summary_pdf["Late Orders"] = 0
+                    requisitioner_summary_pdf["Late Lines"] = 0
+                    requisitioner_summary_pdf["Avg Days Late"] = 0.0
+                    requisitioner_summary_pdf["Max Days Late"] = 0.0
+                    requisitioner_summary_pdf["Late Order Value"] = 0.0
+
+                requisitioner_summary_pdf.fillna(
+                    {
+                        "Late Orders": 0,
+                        "Late Lines": 0,
+                        "Avg Days Late": 0.0,
+                        "Max Days Late": 0.0,
+                        "Late Order Value": 0.0,
+                    },
+                    inplace=True,
+                )
+                requisitioner_summary_pdf.reset_index(inplace=True)
+                requisitioner_summary_pdf.sort_values(
+                    by="Total Value", ascending=False, inplace=True
+                )
+                requisitioner_summary_pdf["Late Orders"] = requisitioner_summary_pdf[
+                    "Late Orders"
+                ].astype(int)
+                requisitioner_summary_pdf["Late Lines"] = requisitioner_summary_pdf[
+                    "Late Lines"
+                ].astype(int)
+                requisitioner_summary_pdf["Avg Days Late"] = requisitioner_summary_pdf[
+                    "Avg Days Late"
+                ].round(1)
+                requisitioner_summary_pdf["Max Days Late"] = requisitioner_summary_pdf[
+                    "Max Days Late"
+                ].round(0)
+                requisitioner_summary_pdf["Unique POs"] = requisitioner_summary_pdf[
+                    "Unique POs"
+                ].astype(int)
+                requisitioner_summary_pdf["Order Lines"] = requisitioner_summary_pdf[
+                    "Order Lines"
+                ].astype(int)
+
+            delivery_tab, accounts_tab, requisitioner_tab = st.tabs(
+                ["Delivery Health", "Purchase Accounts", "Requisitioners"]
+            )
+
+            with delivery_tab:
+                st.subheader("Delivery Health Overview")
+                if delivery_ready:
+                    progress_html = f"""
+                        <div class="card" style='background-color: #AED581; width: 100%;'>
+                            <h3>On-Time Delivery</h3>
+                            <p class="percentage-value">{format_percentage(on_time_percentage)}</p>
+                            <div class="progress-wrapper">
+                                <div class="progress-track">
+                                    <div class="progress-fill" style="width: {on_time_percentage:.2f}%;"></div>
+                                </div>
+                            </div>
+                            <p>On-Time: {format_percentage(on_time_percentage)} | Late: {format_percentage(late_percentage)}</p>
+                        </div>
+                    """
+                    st.markdown(progress_html, unsafe_allow_html=True)
+
+                    if not delivery_summary_display.empty:
+                        st.dataframe(
+                            delivery_summary_display.set_index("Metric"),
+                            use_container_width=True,
                         )
-                        pdf_elements.append(
-                            (
-                                "List of Late Purchase Orders by Request Date",
-                                late_pos_display,
-                                img_buf_late,
+                        pdf_sections.append(
+                            ("On-Time Delivery Summary", delivery_summary_pdf.copy(), None)
+                        )
+
+                    if delivery_insights:
+                        st.markdown("#### Quick Insights")
+                        insights_html = " ".join(
+                            [f"<span class='insight-pill'>💡 {insight}</span>" for insight in delivery_insights]
+                        )
+                        st.markdown(insights_html, unsafe_allow_html=True)
+
+                    if not late_account_summary_pdf.empty or not late_requisitioner_summary_pdf.empty:
+                        st.markdown("#### Late Order Drivers")
+                        col1, col2 = st.columns(2)
+                        if not late_account_summary_pdf.empty:
+                            account_display = late_account_summary_pdf.copy()
+                            account_display["Late Order Value"] = account_display[
+                                "Late Order Value"
+                            ].apply(format_currency)
+                            col1.dataframe(
+                                account_display.set_index("Purchase Account"),
+                                use_container_width=True,
                             )
+                            pdf_sections.append(
+                                ("Late Orders by Purchase Account", late_account_summary_pdf.copy(), None)
+                            )
+                        else:
+                            col1.info("No late orders by purchase account.")
+
+                        if not late_requisitioner_summary_pdf.empty:
+                            requisitioner_display = late_requisitioner_summary_pdf.copy()
+                            requisitioner_display["Late Order Value"] = requisitioner_display[
+                                "Late Order Value"
+                            ].apply(format_currency)
+                            col2.dataframe(
+                                requisitioner_display.set_index("Requisitioner"),
+                                use_container_width=True,
+                            )
+                            pdf_sections.append(
+                                ("Late Orders by Requisitioner", late_requisitioner_summary_pdf.copy(), None)
+                            )
+                        else:
+                            col2.info("No late orders by requisitioner.")
+
+                    if not late_pos_display.empty:
+                        st.markdown("#### Late Purchase Order Detail")
+                        st.dataframe(late_pos_display, use_container_width=True)
+                        pdf_sections.append(
+                            ("Late Purchase Order Detail", late_pos_pdf.copy(), None)
                         )
                     else:
-                        img_buf_delivery = plotly_to_image(fig_delivery)
-                        col1, _ = st.columns([1, 1])
-                        with col1:
-                            st.plotly_chart(fig_delivery, use_container_width=True)
-                        st.write("No late purchase orders found.")
-                        pdf_elements.append(
-                            (
-                                "On-Time Delivery Performance",
-                                delivery_data,
-                                img_buf_delivery,
-                            )
-                        )
-                        pdf_elements.append(
-                            (
-                                "List of Late Purchase Orders by Request Date",
-                                pd.DataFrame(),
-                                None,
-                            )
+                        st.success(
+                            "All purchase orders are meeting requested dates within the selected range."
                         )
                 else:
-                    st.error("'RecDate' and/or 'RequestDate' columns are missing.")
-
-            # On-Time Delivery Matrix by Purchase Account
-            matrix_df = otd_matrix_by_account(df_filtered)
-            if not matrix_df.empty:
-                st.markdown("### On-Time Delivery by Purchase Account")
-                st.dataframe(matrix_df, use_container_width=True)
-                pdf_elements.append(
-                    ("On-Time Delivery by Purchase Account", matrix_df, None)
-                )
-
-            # PO Counts per Requisitioner
-            st.markdown("### PO Count per Requisitioner by Order Date")
-            po_counts = (
-                df_filtered.groupby("Requisitioner")["PONumber"].nunique().reset_index()
-            )
-            po_counts.rename(columns={"PONumber": "PO Count"}, inplace=True)
-            po_amount = (
-                df_filtered.groupby("Requisitioner")["Total"].sum().reset_index()
-            )
-            po_amount.rename(columns={"Total": "Total Open PO Amount"}, inplace=True)
-            po_counts_with_amount = pd.merge(
-                po_counts, po_amount, on="Requisitioner", how="left"
-            )
-            po_counts_with_amount["Total Open PO Amount"] = po_counts_with_amount[
-                "Total Open PO Amount"
-            ].apply(lambda x: f"${x:,.2f}")
-            po_numbers = (
-                df_filtered.groupby("Requisitioner")["PONumber"]
-                .apply(lambda x: ", ".join(x.unique()))
-                .reset_index()
-            )
-            po_numbers.rename(columns={"PONumber": "PO Numbers"}, inplace=True)
-            po_counts_final = pd.merge(
-                po_counts_with_amount, po_numbers, on="Requisitioner", how="left"
-            )
-
-            # Remove index and reset it
-            po_counts_final.reset_index(drop=True, inplace=True)
-
-            fig_po_counts = px.bar(
-                po_counts,
-                x="Requisitioner",
-                y="PO Count",
-                title="PO Count per Requisitioner",
-            )
-            st.plotly_chart(fig_po_counts, use_container_width=True)
-            img_buf = plotly_to_image(fig_po_counts)
-
-            # Make table page-wide
-            st.dataframe(po_counts_final, use_container_width=True)
-            pdf_elements.append(
-                ("PO Count per Requisitioner by Order Date", po_counts_final, img_buf)
-            )
-
-            # Last Orders for the period
-            st.markdown("### Last Orders for the period")
-            last_orders = df_filtered.sort_values(by="OrderDate", ascending=False)
-            if not last_orders.empty:
-                fig_last_orders = px.bar(
-                    last_orders.head(10),
-                    x="OrderDate",
-                    y="Total",
-                    title="Last Orders by Amount",
-                )
-                st.plotly_chart(fig_last_orders, use_container_width=True)
-                img_buf = plotly_to_image(fig_last_orders)
-
-                last_orders_display = last_orders.copy()
-                if "Total" in last_orders_display.columns:
-                    last_orders_display["Total"] = last_orders_display["Total"].apply(
-                        lambda x: f"${x:,.2f}"
-                    )
-                    last_orders_display.rename(
-                        columns={"Total": "Open Orders Amt"}, inplace=True
+                    st.info(
+                        delivery_message
+                        or "No delivery metrics are available for the current selection."
                     )
 
-                # Remove specified columns
-                columns_to_remove = ["Responsibility Key", "Open Lines Amt"]
-                for col in columns_to_remove:
-                    if col in last_orders_display.columns:
-                        last_orders_display.drop(columns=[col], inplace=True)
+            with accounts_tab:
+                st.subheader("Purchase Account Performance")
+                if not matrix_df.empty:
+                    matrix_display = matrix_df.copy()
+                    matrix_display["On-Time %"] = matrix_display["On-Time %"].map(format_percentage)
+                    st.markdown("#### On-Time Delivery by Purchase Account")
+                    st.dataframe(
+                        matrix_display.set_index("Purchase Account"),
+                        use_container_width=True,
+                    )
+                    pdf_sections.append(
+                        ("On-Time Delivery by Purchase Account", matrix_df.copy(), None)
+                    )
+                else:
+                    st.info("On-time delivery by purchase account is unavailable for this dataset.")
 
-                # Remove time from date columns
-                date_columns_in_last_orders = last_orders_display.select_dtypes(
-                    include=["datetime64[ns]"]
-                ).columns
-                for col in date_columns_in_last_orders:
-                    last_orders_display[col] = last_orders_display[col].dt.date
+                if not account_value_summary_pdf.empty:
+                    st.markdown("#### Spend & Exposure Overview")
+                    account_display = account_value_summary_pdf.copy()
+                    account_display["Total Value"] = account_display["Total Value"].apply(
+                        format_currency
+                    )
+                    account_display["Open Amount"] = account_display["Open Amount"].apply(
+                        format_currency
+                    )
+                    account_display["Avg Order Value"] = account_display["Avg Order Value"].apply(
+                        format_currency
+                    )
+                    st.dataframe(
+                        account_display.set_index("Purchase Account"),
+                        use_container_width=True,
+                    )
+                    pdf_sections.append(
+                        ("Purchase Account Financial Summary", account_value_summary_pdf.copy(), None)
+                    )
 
-                # Reset index and drop it
-                last_orders_display.reset_index(drop=True, inplace=True)
+                    top_account_row = account_value_summary_pdf.iloc[0]
+                    st.markdown(
+                        f"<span class='insight-pill'>🏆 Highest spend: {top_account_row['Purchase Account']} ({format_currency(top_account_row['Total Value'])})</span>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.info("Purchase account details are not available in the uploaded data.")
 
-                # For large tables, display only top N rows for performance
-                MAX_ROWS_DISPLAY = 500
-                last_orders_display = last_orders_display.head(MAX_ROWS_DISPLAY)
+            with requisitioner_tab:
+                st.subheader("Requisitioner Activity Overview")
+                if not requisitioner_summary_pdf.empty:
+                    requisitioner_display = requisitioner_summary_pdf.copy()
+                    requisitioner_display["Total Value"] = requisitioner_display[
+                        "Total Value"
+                    ].apply(format_currency)
+                    requisitioner_display["Open Amount"] = requisitioner_display[
+                        "Open Amount"
+                    ].apply(format_currency)
+                    requisitioner_display["Avg Order Value"] = requisitioner_display[
+                        "Avg Order Value"
+                    ].apply(format_currency)
+                    requisitioner_display["Late Order Value"] = requisitioner_display[
+                        "Late Order Value"
+                    ].apply(format_currency)
+                    st.dataframe(
+                        requisitioner_display.set_index("Requisitioner"),
+                        use_container_width=True,
+                    )
+                    pdf_sections.append(
+                        ("Requisitioner Performance Summary", requisitioner_summary_pdf.copy(), None)
+                    )
 
-                st.dataframe(last_orders_display, use_container_width=True)
-                pdf_elements.append(
-                    ("Last Orders for the period", last_orders_display, img_buf)
-                )
-            else:
-                st.write("No orders found.")
-                pdf_elements.append(
-                    ("Last Orders for the period", pd.DataFrame(), None)
-                )
-
-            # Open Orders Amount per Vendor (Only Table)
-            st.markdown("### Open Orders Amount per Vendor")
-            vendor_amount = (
-                df_filtered[df_filtered["POStatus"] == "OPEN"]
-                .groupby("VendorName")["Total"]
-                .sum()
-                .reset_index()
-            )
-            vendor_amount_no_outliers = filter_outliers(
-                vendor_amount, "Total"
-            ).sort_values(by="Total", ascending=False)
-            vendor_amount_no_outliers_display = vendor_amount_no_outliers.copy()
-            vendor_amount_no_outliers_display["Total"] = (
-                vendor_amount_no_outliers_display["Total"].apply(lambda x: f"${x:,.2f}")
-            )
-
-            # Reset index and drop it
-            vendor_amount_no_outliers_display.reset_index(drop=True, inplace=True)
-
-            fig_vendor_amount = px.bar(
-                vendor_amount_no_outliers,
-                x="VendorName",
-                y="Total",
-                title="Open Orders Amount per Vendor",
-            )
-            st.plotly_chart(fig_vendor_amount, use_container_width=True)
-            img_buf = plotly_to_image(fig_vendor_amount)
-
-            st.dataframe(vendor_amount_no_outliers_display, use_container_width=True)
-            pdf_elements.append(
-                (
-                    "Open Orders Amount per Vendor",
-                    vendor_amount_no_outliers_display,
-                    img_buf,
-                )
-            )
-
-            # Top 5 Vendors by Amount
-            st.markdown("### Top 5 Vendors by Amount")
-            top_vendors = (
-                df_filtered[df_filtered["POStatus"] == "OPEN"]
-                .groupby("VendorName")["Total"]
-                .sum()
-                .reset_index()
-            )
-            top_vendors = top_vendors.sort_values(by="Total", ascending=False).head(5)
-            fig_top_vendors = px.bar(
-                top_vendors,
-                x="VendorName",
-                y="Total",
-                title="Top 5 Vendors by Amount",
-                labels={"Total": "Total Amount ($)", "VendorName": "Vendor"},
-                color="Total",
-                color_continuous_scale=px.colors.sequential.Plasma,
-            )
-
-            # Display chart and table stacked for full width
-            st.plotly_chart(fig_top_vendors, use_container_width=True)
-            top_vendors_display = top_vendors.copy()
-            top_vendors_display["Total"] = top_vendors_display["Total"].apply(
-                lambda x: f"${x:,.2f}"
-            )
-            top_vendors_display.reset_index(drop=True, inplace=True)
-            st.dataframe(top_vendors_display, use_container_width=True)
-            img_buf = plotly_to_image(fig_top_vendors, format="png", width=800, height=600)
-            pdf_elements.append(("Top 5 Vendors by Amount", top_vendors_display, img_buf))
-
-            # Top Items by QtyOrdered
-            st.markdown("### Top Items by QtyOrdered")
-            top_items = (
-                df_filtered.groupby(["ItemDescription", "VendorName"])["QtyOrdered"]
-                .sum()
-                .reset_index()
-            )
-            top_items_no_outliers = (
-                filter_outliers(top_items, "QtyOrdered")
-                .sort_values(by="QtyOrdered", ascending=False)
-                .head(10)
-            )
-            fig_top_items = px.bar(
-                top_items_no_outliers,
-                x="ItemDescription",
-                y="QtyOrdered",
-                title="Top Items by QtyOrdered (Filtered)",
-                labels={
-                    "QtyOrdered": "Quantity Ordered",
-                    "ItemDescription": "Item Description",
-                },
-                color="QtyOrdered",
-                color_continuous_scale="Agsunset",
-            )
-
-            # Display chart and table stacked for full width
-            st.plotly_chart(fig_top_items, use_container_width=True)
-            top_items_no_outliers_display = top_items_no_outliers.copy()
-            top_items_no_outliers_display["QtyOrdered"] = (
-                top_items_no_outliers_display["QtyOrdered"].apply(lambda x: f"{x:,.0f}")
-            )
-            top_items_no_outliers_display.reset_index(drop=True, inplace=True)
-            st.dataframe(top_items_no_outliers_display, use_container_width=True)
-            img_buf = plotly_to_image(fig_top_items, format="png", width=1000, height=600)
-            pdf_elements.append(
-                (
-                    "Top Items by QtyOrdered",
-                    top_items_no_outliers_display,
-                    img_buf,
-                )
-            )
+                    requisitioner_insights = []
+                    top_spend_req = requisitioner_summary_pdf.iloc[0]
+                    requisitioner_insights.append(
+                        f"{top_spend_req['Requisitioner']} leads spend with {int(top_spend_req['Unique POs'])} POs totaling {format_currency(top_spend_req['Total Value'])}."
+                    )
+                    late_focus_req = requisitioner_summary_pdf.sort_values(
+                        by="Late Orders", ascending=False
+                    ).iloc[0]
+                    if late_focus_req["Late Orders"] > 0:
+                        requisitioner_insights.append(
+                            f"{late_focus_req['Requisitioner']} carries the most late orders ({int(late_focus_req['Late Orders'])}) averaging {late_focus_req['Avg Days Late']:.1f} days late."
+                        )
+                    if requisitioner_insights:
+                        insight_html = " ".join(
+                            [f"<span class='insight-pill'>📌 {text}</span>" for text in requisitioner_insights]
+                        )
+                        st.markdown(insight_html, unsafe_allow_html=True)
+                else:
+                    st.info("Requisitioner-level insights are unavailable for this dataset.")
 
             # Processing time
             processing_end_time = time.time()
@@ -1246,17 +1302,9 @@ def main():
                     elements.append(Spacer(1, 18))
 
                     # Table of Contents
-                    toc_items = [
-                        "Key Performance Indicators",
-                        "PO Count per Requisitioner by Order Date",
-                        "Last Orders for the period",
-                        "Open Orders Amount per Vendor",
-                        "Top 5 Vendors by Amount",
-                        "Top Items by QtyOrdered",
+                    toc_items = ["Key Performance Indicators"] + [
+                        title for title, _, _ in pdf_sections
                     ]
-                    if selected_requisitioner == "All":
-                        toc_items.insert(1, "On-Time Delivery Performance")
-                        toc_items.insert(2, "List of Late Purchase Orders by Request Date")
                     elements.append(Paragraph("Table of Contents", subheading_style))
                     for idx, item in enumerate(toc_items, 1):
                         elements.append(Paragraph(f"{idx}. {item}", bullet_style))
@@ -1283,18 +1331,19 @@ def main():
                     elements.append(Spacer(1, 12))
 
                     # Add analyses with headings and consistent table style
-                    for title_text, data, img_buf in pdf_elements:
+                    for title_text, data, _ in pdf_sections:
+                        data_for_pdf = data.copy() if isinstance(data, pd.DataFrame) else data
                         elements.append(Paragraph(title_text, subheading_style))
                         elements.append(Spacer(1, 8))
-                        if isinstance(data, pd.DataFrame) and not data.empty:
+                        if isinstance(data_for_pdf, pd.DataFrame) and not data_for_pdf.empty:
                             # Convert date columns to strings to avoid issues in PDF table
-                            date_cols = data.select_dtypes(
+                            date_cols = data_for_pdf.select_dtypes(
                                 include=["datetime64[ns]", "datetime64[ns, UTC]"]
                             ).columns
                             for col in date_cols:
-                                data[col] = data[col].astype(str)
+                                data_for_pdf[col] = data_for_pdf[col].astype(str)
 
-                            table_data = [list(data.columns)] + data.values.tolist()
+                            table_data = [list(data_for_pdf.columns)] + data_for_pdf.values.tolist()
                             t = Table(table_data, repeatRows=1, hAlign="LEFT")
                             t.setStyle(
                                 TableStyle(
@@ -1322,23 +1371,6 @@ def main():
                                 )
                             )
                             elements.append(Spacer(1, 12))
-                        if img_buf and isinstance(img_buf, BytesIO):
-                            try:
-                                img_buf.seek(0)
-                                img = ReportLabImage(img_buf)
-                                img.drawHeight = 3.5 * inch
-                                img.drawWidth = 5.5 * inch
-                                elements.append(img)
-                                elements.append(Spacer(1, 12))
-                            except Exception as e:
-                                # If image insertion fails, add a note instead
-                                elements.append(
-                                    Paragraph(
-                                        f"Chart visualization available in web interface only.",
-                                        normal_style,
-                                    )
-                                )
-                                elements.append(Spacer(1, 6))
 
                     # Build the PDF
                     doc.build(elements)
