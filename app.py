@@ -813,6 +813,8 @@ def main():
                     late_pos = df_filtered[
                         df_filtered["RecDate"] > df_filtered["RequestDate"]
                     ]
+                    # Ensure the late purchase orders dataframe is always defined
+                    late_df = late_pos.copy()
                     on_time_count = on_time_pos["PONumber"].nunique()
                     late_count = late_pos["PONumber"].nunique()
                     total_pos = on_time_count + late_count
