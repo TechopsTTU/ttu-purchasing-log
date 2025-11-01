@@ -367,7 +367,7 @@ def display_index_cards(metrics):
         )
 def plotly_to_image(fig, format="png", **kwargs):
     """Safely convert a Plotly figure to an in-memory image.
-    
+
     Falls back gracefully if Kaleido/Chrome is not available.
 
     Parameters
@@ -386,7 +386,23 @@ def plotly_to_image(fig, format="png", **kwargs):
         otherwise ``None``.
     """
     try:
-        return f"${value:,.2f}"
+        image_bytes = fig.to_image(format=format, **kwargs)
+        return BytesIO(image_bytes)
+    except Exception as exc:  # pragma: no cover - runtime dependency on Kaleido
+        st.warning(
+            "Unable to export the Plotly figure to an image. "
+            "Install Kaleido for image export support."
+        )
+        st.write(str(exc))
+        return None
+
+
+def format_currency(value) -> str:
+    """Return the value formatted as a currency string."""
+    try:
+        if pd.isna(value):
+            return "$0.00"
+        return f"${float(value):,.2f}"
     except (TypeError, ValueError):
         return "$0.00"
 
