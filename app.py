@@ -404,8 +404,8 @@ def otd_matrix_by_account(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame()
 
     temp = df.copy()
-    temp["RecDate"] = pd.to_datetime(temp["RecDate"]).dt.date
-    temp["RequestDate"] = pd.to_datetime(temp["RequestDate"]).dt.date
+    temp["RecDate"] = pd.to_datetime(temp["RecDate"]).dt.normalize()
+    temp["RequestDate"] = pd.to_datetime(temp["RequestDate"]).dt.normalize()
     temp["On_Time"] = temp["RecDate"] <= temp["RequestDate"]
 
     summary = (
@@ -802,10 +802,10 @@ def main():
                     # Remove time from 'RecDate' and 'RequestDate' columns
                     df_filtered["RecDate"] = pd.to_datetime(
                         df_filtered["RecDate"]
-                    ).dt.date
+                    ).dt.normalize()
                     df_filtered["RequestDate"] = pd.to_datetime(
                         df_filtered["RequestDate"]
-                    ).dt.date
+                    ).dt.normalize()
 
                     on_time_pos = df_filtered[
                         df_filtered["RecDate"] <= df_filtered["RequestDate"]
