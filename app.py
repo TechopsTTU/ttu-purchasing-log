@@ -856,67 +856,72 @@ def main():
 
                     if not late_df.empty:
                         late_df["Days Late"] = (late_df["RecDate"] - late_df["RequestDate"]).dt.days
-                        late_account_summary_pdf = (
-                            late_df.groupby("Purchase Account")
-                            .agg(
-                                Late_Orders=("PONumber", "nunique"),
-                                Late_Lines=("PONumber", "size"),
-                                Avg_Days_Late=("Days Late", "mean"),
-                                Max_Days_Late=("Days Late", "max"),
-                                Late_Order_Value=("Total", "sum"),
-                            )
-                            .reset_index()
-                        )
-                        late_account_summary_pdf.sort_values(
-                            by=["Late_Orders", "Late_Order_Value"], ascending=False, inplace=True
-                        )
-                        late_account_summary_pdf["Avg_Days_Late"] = late_account_summary_pdf[
-                            "Avg_Days_Late"
-                        ].round(1)
-                        late_account_summary_pdf.rename(
-                            columns={
-                                "Late_Orders": "Late Orders",
-                                "Late_Lines": "Late Lines",
-                                "Avg_Days_Late": "Avg Days Late",
-                                "Max_Days_Late": "Max Days Late",
-                                "Late_Order_Value": "Late Order Value",
-                            },
-                            inplace=True,
-                        )
-                        late_account_summary_pdf["Max Days Late"] = late_account_summary_pdf[
-                            "Max Days Late"
-                        ].fillna(0).astype(int)
 
-                        late_requisitioner_summary_pdf = (
-                            late_df.groupby("Requisitioner")
-                            .agg(
-                                Late_Orders=("PONumber", "nunique"),
-                                Late_Lines=("PONumber", "size"),
-                                Avg_Days_Late=("Days Late", "mean"),
-                                Max_Days_Late=("Days Late", "max"),
-                                Late_Order_Value=("Total", "sum"),
+                        late_account_summary_pdf = pd.DataFrame()
+                        if "Purchase Account" in late_df.columns:
+                            late_account_summary_pdf = (
+                                late_df.groupby("Purchase Account")
+                                .agg(
+                                    Late_Orders=("PONumber", "nunique"),
+                                    Late_Lines=("PONumber", "size"),
+                                    Avg_Days_Late=("Days Late", "mean"),
+                                    Max_Days_Late=("Days Late", "max"),
+                                    Late_Order_Value=("Total", "sum"),
+                                )
+                                .reset_index()
                             )
-                            .reset_index()
-                        )
-                        late_requisitioner_summary_pdf.sort_values(
-                            by=["Late_Orders", "Late_Order_Value"], ascending=False, inplace=True
-                        )
-                        late_requisitioner_summary_pdf["Avg_Days_Late"] = (
-                            late_requisitioner_summary_pdf["Avg_Days_Late"].round(1)
-                        )
-                        late_requisitioner_summary_pdf.rename(
-                            columns={
-                                "Late_Orders": "Late Orders",
-                                "Late_Lines": "Late Lines",
-                                "Avg_Days_Late": "Avg Days Late",
-                                "Max_Days_Late": "Max Days Late",
-                                "Late_Order_Value": "Late Order Value",
-                            },
-                            inplace=True,
-                        )
-                        late_requisitioner_summary_pdf["Max Days Late"] = late_requisitioner_summary_pdf[
-                            "Max Days Late"
-                        ].fillna(0).astype(int)
+                            late_account_summary_pdf.sort_values(
+                                by=["Late_Orders", "Late_Order_Value"], ascending=False, inplace=True
+                            )
+                            late_account_summary_pdf["Avg_Days_Late"] = late_account_summary_pdf[
+                                "Avg_Days_Late"
+                            ].round(1)
+                            late_account_summary_pdf.rename(
+                                columns={
+                                    "Late_Orders": "Late Orders",
+                                    "Late_Lines": "Late Lines",
+                                    "Avg_Days_Late": "Avg Days Late",
+                                    "Max_Days_Late": "Max Days Late",
+                                    "Late_Order_Value": "Late Order Value",
+                                },
+                                inplace=True,
+                            )
+                            late_account_summary_pdf["Max Days Late"] = late_account_summary_pdf[
+                                "Max Days Late"
+                            ].fillna(0).astype(int)
+
+                        late_requisitioner_summary_pdf = pd.DataFrame()
+                        if "Requisitioner" in late_df.columns:
+                            late_requisitioner_summary_pdf = (
+                                late_df.groupby("Requisitioner")
+                                .agg(
+                                    Late_Orders=("PONumber", "nunique"),
+                                    Late_Lines=("PONumber", "size"),
+                                    Avg_Days_Late=("Days Late", "mean"),
+                                    Max_Days_Late=("Days Late", "max"),
+                                    Late_Order_Value=("Total", "sum"),
+                                )
+                                .reset_index()
+                            )
+                            late_requisitioner_summary_pdf.sort_values(
+                                by=["Late_Orders", "Late_Order_Value"], ascending=False, inplace=True
+                            )
+                            late_requisitioner_summary_pdf["Avg_Days_Late"] = (
+                                late_requisitioner_summary_pdf["Avg_Days_Late"].round(1)
+                            )
+                            late_requisitioner_summary_pdf.rename(
+                                columns={
+                                    "Late_Orders": "Late Orders",
+                                    "Late_Lines": "Late Lines",
+                                    "Avg_Days_Late": "Avg Days Late",
+                                    "Max_Days_Late": "Max Days Late",
+                                    "Late_Order_Value": "Late Order Value",
+                                },
+                                inplace=True,
+                            )
+                            late_requisitioner_summary_pdf["Max Days Late"] = late_requisitioner_summary_pdf[
+                                "Max Days Late"
+                            ].fillna(0).astype(int)
 
                         detail_columns = [
                             "OrderDate",
