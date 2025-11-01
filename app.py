@@ -807,6 +807,15 @@ def main():
             # Removed 'Detailed Analyses' subheader as per instruction
 
             pdf_elements = []
+            pdf_sections = []
+            delivery_insights = []
+            delivery_ready = False
+            delivery_message = ""
+            late_df = pd.DataFrame()
+            late_account_summary_pdf = pd.DataFrame()
+            late_requisitioner_summary_pdf = pd.DataFrame()
+            on_time_percentage = 0.0
+            late_percentage = 0.0
 
             # Only show On-Time Delivery Performance if no requisitioner is selected
             if selected_requisitioner == "All":
