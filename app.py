@@ -352,19 +352,6 @@ def display_index_cards(metrics):
             """,
             unsafe_allow_html=True,
         )
-
-
-# Calculate outliers using IQR method
-def filter_outliers(df, column):
-    Q1 = df[column].quantile(0.25)
-    Q3 = df[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    df_filtered = df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
-    return df_filtered
-
-
 def plotly_to_image(fig, format="png", **kwargs):
     """Safely convert a Plotly figure to an in-memory image.
     
@@ -797,18 +784,6 @@ def main():
 
             pdf_elements = []
 
-            # Distribution of order totals
-            if "Total" in df_filtered.columns:
-                fig_total_dist = px.histogram(
-                    df_filtered,
-                    x="Total",
-                    nbins=30,
-                    title="Distribution of Order Totals",
-                )
-                st.plotly_chart(fig_total_dist, use_container_width=True)
-                img_buf = plotly_to_image(fig_total_dist)
-                pdf_elements.append(("Order Total Distribution", pd.DataFrame(), img_buf))
-
             # Only show On-Time Delivery Performance if no requisitioner is selected
             if selected_requisitioner == "All":
                 # On-Time Delivery Performance
@@ -1012,167 +987,6 @@ def main():
                 ("PO Count per Requisitioner by Order Date", po_counts_final, img_buf)
             )
 
-            # Last Orders for the period
-            st.markdown("### Last Orders for the period")
-            last_orders = df_filtered.sort_values(by="OrderDate", ascending=False)
-            if not last_orders.empty:
-                fig_last_orders = px.bar(
-                    last_orders.head(10),
-                    x="OrderDate",
-                    y="Total",
-                    title="Last Orders by Amount",
-                )
-                st.plotly_chart(fig_last_orders, use_container_width=True)
-                img_buf = plotly_to_image(fig_last_orders)
-
-                last_orders_display = last_orders.copy()
-                if "Total" in last_orders_display.columns:
-                    last_orders_display["Total"] = last_orders_display["Total"].apply(
-                        lambda x: f"${x:,.2f}"
-                    )
-                    last_orders_display.rename(
-                        columns={"Total": "Open Orders Amt"}, inplace=True
-                    )
-
-                # Remove specified columns
-                columns_to_remove = ["Responsibility Key", "Open Lines Amt"]
-                for col in columns_to_remove:
-                    if col in last_orders_display.columns:
-                        last_orders_display.drop(columns=[col], inplace=True)
-
-                # Remove time from date columns
-                date_columns_in_last_orders = last_orders_display.select_dtypes(
-                    include=["datetime64[ns]"]
-                ).columns
-                for col in date_columns_in_last_orders:
-                    last_orders_display[col] = last_orders_display[col].dt.date
-
-                # Reset index and drop it
-                last_orders_display.reset_index(drop=True, inplace=True)
-
-                # For large tables, display only top N rows for performance
-                MAX_ROWS_DISPLAY = 500
-                last_orders_display = last_orders_display.head(MAX_ROWS_DISPLAY)
-
-                st.dataframe(last_orders_display, use_container_width=True)
-                pdf_elements.append(
-                    ("Last Orders for the period", last_orders_display, img_buf)
-                )
-            else:
-                st.write("No orders found.")
-                pdf_elements.append(
-                    ("Last Orders for the period", pd.DataFrame(), None)
-                )
-
-            # Open Orders Amount per Vendor (Only Table)
-            st.markdown("### Open Orders Amount per Vendor")
-            vendor_amount = (
-                df_filtered[df_filtered["POStatus"] == "OPEN"]
-                .groupby("VendorName")["Total"]
-                .sum()
-                .reset_index()
-            )
-            vendor_amount_no_outliers = filter_outliers(
-                vendor_amount, "Total"
-            ).sort_values(by="Total", ascending=False)
-            vendor_amount_no_outliers_display = vendor_amount_no_outliers.copy()
-            vendor_amount_no_outliers_display["Total"] = (
-                vendor_amount_no_outliers_display["Total"].apply(lambda x: f"${x:,.2f}")
-            )
-
-            # Reset index and drop it
-            vendor_amount_no_outliers_display.reset_index(drop=True, inplace=True)
-
-            fig_vendor_amount = px.bar(
-                vendor_amount_no_outliers,
-                x="VendorName",
-                y="Total",
-                title="Open Orders Amount per Vendor",
-            )
-            st.plotly_chart(fig_vendor_amount, use_container_width=True)
-            img_buf = plotly_to_image(fig_vendor_amount)
-
-            st.dataframe(vendor_amount_no_outliers_display, use_container_width=True)
-            pdf_elements.append(
-                (
-                    "Open Orders Amount per Vendor",
-                    vendor_amount_no_outliers_display,
-                    img_buf,
-                )
-            )
-
-            # Top 5 Vendors by Amount
-            st.markdown("### Top 5 Vendors by Amount")
-            top_vendors = (
-                df_filtered[df_filtered["POStatus"] == "OPEN"]
-                .groupby("VendorName")["Total"]
-                .sum()
-                .reset_index()
-            )
-            top_vendors = top_vendors.sort_values(by="Total", ascending=False).head(5)
-            fig_top_vendors = px.bar(
-                top_vendors,
-                x="VendorName",
-                y="Total",
-                title="Top 5 Vendors by Amount",
-                labels={"Total": "Total Amount ($)", "VendorName": "Vendor"},
-                color="Total",
-                color_continuous_scale=px.colors.sequential.Plasma,
-            )
-
-            # Display chart and table stacked for full width
-            st.plotly_chart(fig_top_vendors, use_container_width=True)
-            top_vendors_display = top_vendors.copy()
-            top_vendors_display["Total"] = top_vendors_display["Total"].apply(
-                lambda x: f"${x:,.2f}"
-            )
-            top_vendors_display.reset_index(drop=True, inplace=True)
-            st.dataframe(top_vendors_display, use_container_width=True)
-            img_buf = plotly_to_image(fig_top_vendors, format="png", width=800, height=600)
-            pdf_elements.append(("Top 5 Vendors by Amount", top_vendors_display, img_buf))
-
-            # Top Items by QtyOrdered
-            st.markdown("### Top Items by QtyOrdered")
-            top_items = (
-                df_filtered.groupby(["ItemDescription", "VendorName"])["QtyOrdered"]
-                .sum()
-                .reset_index()
-            )
-            top_items_no_outliers = (
-                filter_outliers(top_items, "QtyOrdered")
-                .sort_values(by="QtyOrdered", ascending=False)
-                .head(10)
-            )
-            fig_top_items = px.bar(
-                top_items_no_outliers,
-                x="ItemDescription",
-                y="QtyOrdered",
-                title="Top Items by QtyOrdered (Filtered)",
-                labels={
-                    "QtyOrdered": "Quantity Ordered",
-                    "ItemDescription": "Item Description",
-                },
-                color="QtyOrdered",
-                color_continuous_scale="Agsunset",
-            )
-
-            # Display chart and table stacked for full width
-            st.plotly_chart(fig_top_items, use_container_width=True)
-            top_items_no_outliers_display = top_items_no_outliers.copy()
-            top_items_no_outliers_display["QtyOrdered"] = (
-                top_items_no_outliers_display["QtyOrdered"].apply(lambda x: f"{x:,.0f}")
-            )
-            top_items_no_outliers_display.reset_index(drop=True, inplace=True)
-            st.dataframe(top_items_no_outliers_display, use_container_width=True)
-            img_buf = plotly_to_image(fig_top_items, format="png", width=1000, height=600)
-            pdf_elements.append(
-                (
-                    "Top Items by QtyOrdered",
-                    top_items_no_outliers_display,
-                    img_buf,
-                )
-            )
-
             # Processing time
             processing_end_time = time.time()
             total_processing_time = processing_end_time - processing_start_time
@@ -1248,11 +1062,8 @@ def main():
                     # Table of Contents
                     toc_items = [
                         "Key Performance Indicators",
+                        "On-Time Delivery by Purchase Account",
                         "PO Count per Requisitioner by Order Date",
-                        "Last Orders for the period",
-                        "Open Orders Amount per Vendor",
-                        "Top 5 Vendors by Amount",
-                        "Top Items by QtyOrdered",
                     ]
                     if selected_requisitioner == "All":
                         toc_items.insert(1, "On-Time Delivery Performance")
