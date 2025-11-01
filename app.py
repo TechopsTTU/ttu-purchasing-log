@@ -365,9 +365,26 @@ def display_index_cards(metrics):
             """,
             unsafe_allow_html=True,
         )
+def plotly_to_image(fig, format="png", **kwargs):
+    """Safely convert a Plotly figure to an in-memory image.
+    
+    Falls back gracefully if Kaleido/Chrome is not available.
 
+    Parameters
+    ----------
+    fig : plotly.graph_objs.Figure
+        The Plotly figure to convert.
+    format : str, optional
+        Image format understood by Kaleido (default ``"png"``).
+    kwargs : Any
+        Additional keyword arguments passed to ``fig.to_image``.
 
-def format_currency(value) -> str:
+    Returns
+    -------
+    BytesIO or None
+        A buffer containing the image data if conversion succeeds,
+        otherwise ``None``.
+    """
     try:
         return f"${value:,.2f}"
     except (TypeError, ValueError):
@@ -773,39 +790,31 @@ def main():
 
             # Removed 'Detailed Analyses' subheader as per instruction
 
-            pdf_sections = []
+            pdf_elements = []
 
-            delivery_summary_pdf = pd.DataFrame()
-            delivery_summary_display = pd.DataFrame()
-            late_pos_display = pd.DataFrame()
-            late_pos_pdf = pd.DataFrame()
-            late_account_summary_pdf = pd.DataFrame()
-            late_requisitioner_summary_pdf = pd.DataFrame()
-            delivery_insights = []
-            delivery_ready = False
-            delivery_message = None
-            on_time_percentage = 0.0
-            late_percentage = 0.0
-            on_time_count = 0
-            late_count = 0
-            total_pos = 0
-            late_df = pd.DataFrame()
+            # Only show On-Time Delivery Performance if no requisitioner is selected
+            if selected_requisitioner == "All":
+                # On-Time Delivery Performance
+                if (
+                    "RecDate" in df_filtered.columns
+                    and "RequestDate" in df_filtered.columns
+                ):
+                    # Remove time from 'RecDate' and 'RequestDate' columns
+                    df_filtered["RecDate"] = pd.to_datetime(
+                        df_filtered["RecDate"]
+                    ).dt.date
+                    df_filtered["RequestDate"] = pd.to_datetime(
+                        df_filtered["RequestDate"]
+                    ).dt.date
 
-            if {"RecDate", "RequestDate"}.issubset(df_filtered.columns):
-                delivery_df = df_filtered.copy()
-                delivery_df["RecDate"] = pd.to_datetime(
-                    delivery_df["RecDate"], errors="coerce"
-                )
-                delivery_df["RequestDate"] = pd.to_datetime(
-                    delivery_df["RequestDate"], errors="coerce"
-                )
-                delivery_df.dropna(subset=["RecDate", "RequestDate"], inplace=True)
-
-                if not delivery_df.empty:
-                    delivery_df["On_Time"] = delivery_df["RecDate"] <= delivery_df["RequestDate"]
-                    on_time_count = delivery_df[delivery_df["On_Time"]]["PONumber"].nunique()
-                    late_df = delivery_df[~delivery_df["On_Time"]].copy()
-                    late_count = late_df["PONumber"].nunique()
+                    on_time_pos = df_filtered[
+                        df_filtered["RecDate"] <= df_filtered["RequestDate"]
+                    ]
+                    late_pos = df_filtered[
+                        df_filtered["RecDate"] > df_filtered["RequestDate"]
+                    ]
+                    on_time_count = on_time_pos["PONumber"].nunique()
+                    late_count = late_pos["PONumber"].nunique()
                     total_pos = on_time_count + late_count
 
                     if total_pos > 0:
@@ -1092,143 +1101,6 @@ def main():
                         )
                         st.markdown(insights_html, unsafe_allow_html=True)
 
-                    if not late_account_summary_pdf.empty or not late_requisitioner_summary_pdf.empty:
-                        st.markdown("#### Late Order Drivers")
-                        col1, col2 = st.columns(2)
-                        if not late_account_summary_pdf.empty:
-                            account_display = late_account_summary_pdf.copy()
-                            account_display["Late Order Value"] = account_display[
-                                "Late Order Value"
-                            ].apply(format_currency)
-                            col1.dataframe(
-                                account_display.set_index("Purchase Account"),
-                                use_container_width=True,
-                            )
-                            pdf_sections.append(
-                                ("Late Orders by Purchase Account", late_account_summary_pdf.copy(), None)
-                            )
-                        else:
-                            col1.info("No late orders by purchase account.")
-
-                        if not late_requisitioner_summary_pdf.empty:
-                            requisitioner_display = late_requisitioner_summary_pdf.copy()
-                            requisitioner_display["Late Order Value"] = requisitioner_display[
-                                "Late Order Value"
-                            ].apply(format_currency)
-                            col2.dataframe(
-                                requisitioner_display.set_index("Requisitioner"),
-                                use_container_width=True,
-                            )
-                            pdf_sections.append(
-                                ("Late Orders by Requisitioner", late_requisitioner_summary_pdf.copy(), None)
-                            )
-                        else:
-                            col2.info("No late orders by requisitioner.")
-
-                    if not late_pos_display.empty:
-                        st.markdown("#### Late Purchase Order Detail")
-                        st.dataframe(late_pos_display, use_container_width=True)
-                        pdf_sections.append(
-                            ("Late Purchase Order Detail", late_pos_pdf.copy(), None)
-                        )
-                    else:
-                        st.success(
-                            "All purchase orders are meeting requested dates within the selected range."
-                        )
-                else:
-                    st.info(
-                        delivery_message
-                        or "No delivery metrics are available for the current selection."
-                    )
-
-            with accounts_tab:
-                st.subheader("Purchase Account Performance")
-                if not matrix_df.empty:
-                    matrix_display = matrix_df.copy()
-                    matrix_display["On-Time %"] = matrix_display["On-Time %"].map(format_percentage)
-                    st.markdown("#### On-Time Delivery by Purchase Account")
-                    st.dataframe(
-                        matrix_display.set_index("Purchase Account"),
-                        use_container_width=True,
-                    )
-                    pdf_sections.append(
-                        ("On-Time Delivery by Purchase Account", matrix_df.copy(), None)
-                    )
-                else:
-                    st.info("On-time delivery by purchase account is unavailable for this dataset.")
-
-                if not account_value_summary_pdf.empty:
-                    st.markdown("#### Spend & Exposure Overview")
-                    account_display = account_value_summary_pdf.copy()
-                    account_display["Total Value"] = account_display["Total Value"].apply(
-                        format_currency
-                    )
-                    account_display["Open Amount"] = account_display["Open Amount"].apply(
-                        format_currency
-                    )
-                    account_display["Avg Order Value"] = account_display["Avg Order Value"].apply(
-                        format_currency
-                    )
-                    st.dataframe(
-                        account_display.set_index("Purchase Account"),
-                        use_container_width=True,
-                    )
-                    pdf_sections.append(
-                        ("Purchase Account Financial Summary", account_value_summary_pdf.copy(), None)
-                    )
-
-                    top_account_row = account_value_summary_pdf.iloc[0]
-                    st.markdown(
-                        f"<span class='insight-pill'>🏆 Highest spend: {top_account_row['Purchase Account']} ({format_currency(top_account_row['Total Value'])})</span>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.info("Purchase account details are not available in the uploaded data.")
-
-            with requisitioner_tab:
-                st.subheader("Requisitioner Activity Overview")
-                if not requisitioner_summary_pdf.empty:
-                    requisitioner_display = requisitioner_summary_pdf.copy()
-                    requisitioner_display["Total Value"] = requisitioner_display[
-                        "Total Value"
-                    ].apply(format_currency)
-                    requisitioner_display["Open Amount"] = requisitioner_display[
-                        "Open Amount"
-                    ].apply(format_currency)
-                    requisitioner_display["Avg Order Value"] = requisitioner_display[
-                        "Avg Order Value"
-                    ].apply(format_currency)
-                    requisitioner_display["Late Order Value"] = requisitioner_display[
-                        "Late Order Value"
-                    ].apply(format_currency)
-                    st.dataframe(
-                        requisitioner_display.set_index("Requisitioner"),
-                        use_container_width=True,
-                    )
-                    pdf_sections.append(
-                        ("Requisitioner Performance Summary", requisitioner_summary_pdf.copy(), None)
-                    )
-
-                    requisitioner_insights = []
-                    top_spend_req = requisitioner_summary_pdf.iloc[0]
-                    requisitioner_insights.append(
-                        f"{top_spend_req['Requisitioner']} leads spend with {int(top_spend_req['Unique POs'])} POs totaling {format_currency(top_spend_req['Total Value'])}."
-                    )
-                    late_focus_req = requisitioner_summary_pdf.sort_values(
-                        by="Late Orders", ascending=False
-                    ).iloc[0]
-                    if late_focus_req["Late Orders"] > 0:
-                        requisitioner_insights.append(
-                            f"{late_focus_req['Requisitioner']} carries the most late orders ({int(late_focus_req['Late Orders'])}) averaging {late_focus_req['Avg Days Late']:.1f} days late."
-                        )
-                    if requisitioner_insights:
-                        insight_html = " ".join(
-                            [f"<span class='insight-pill'>📌 {text}</span>" for text in requisitioner_insights]
-                        )
-                        st.markdown(insight_html, unsafe_allow_html=True)
-                else:
-                    st.info("Requisitioner-level insights are unavailable for this dataset.")
-
             # Processing time
             processing_end_time = time.time()
             total_processing_time = processing_end_time - processing_start_time
@@ -1302,8 +1174,10 @@ def main():
                     elements.append(Spacer(1, 18))
 
                     # Table of Contents
-                    toc_items = ["Key Performance Indicators"] + [
-                        title for title, _, _ in pdf_sections
+                    toc_items = [
+                        "Key Performance Indicators",
+                        "On-Time Delivery by Purchase Account",
+                        "PO Count per Requisitioner by Order Date",
                     ]
                     elements.append(Paragraph("Table of Contents", subheading_style))
                     for idx, item in enumerate(toc_items, 1):
