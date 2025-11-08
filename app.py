@@ -469,17 +469,33 @@ def build_filter_sidebar(df: pd.DataFrame) -> Tuple[Dict[str, Any], Dict[str, An
             key="requisitioner_filter",
         )
 
+        vendor_default = [
+            value
+            for value in st.session_state.get("vendor_filter", vendor_options)
+            if value in vendor_options
+        ]
+        if not vendor_default and vendor_options:
+            vendor_default = vendor_options
+        st.session_state["vendor_filter"] = vendor_default
         selected_vendors = st.multiselect(
             "Vendors",
             options=vendor_options,
-            default=st.session_state.get("vendor_filter", vendor_options),
+            default=vendor_default,
             key="vendor_filter",
         )
 
+        status_default = [
+            value
+            for value in st.session_state.get("po_status_filter", po_status_options)
+            if value in po_status_options
+        ]
+        if not status_default and po_status_options:
+            status_default = po_status_options
+        st.session_state["po_status_filter"] = status_default
         selected_statuses = st.multiselect(
             "PO status",
             options=po_status_options,
-            default=st.session_state.get("po_status_filter", po_status_options),
+            default=status_default,
             key="po_status_filter",
         )
 
