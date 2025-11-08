@@ -1,0 +1,11 @@
+OrderDate,RequestDate,RecDate,PONumber,VendorName,Requisitioner,Purchase Account,Total,Amt,QtyOrdered,QtyRemaining,POStatus,ItemDescription
+2023-01-05,2023-01-03,2023-01-04,PO-1001,West Texas Supplies,Alex Johnson,12345678,1250.50,600.00,10,2,NN,Laboratory Glassware
+2023-01-18,2023-01-15,2023-01-20,PO-1002,Lubbock Tech,Jamie Smith,22345678,890.75,890.75,5,0,AN,Network Switches
+2023-02-02,2023-01-31,2023-02-07,PO-1003,Red Raider Equipment,Morgan Lee,12345678,2400.00,1200.00,8,3,BN,Maintenance Kits
+2023-02-19,2023-02-16,2023-02-17,PO-1004,Central Office Co.,Taylor Brooks,32345678,342.99,342.99,12,6,F,Office Chairs
+2023-03-06,2023-03-01,2023-03-12,PO-1005,Sunset Services,Alex Johnson,42345678,1900.10,950.05,4,1,AN,HVAC Filters
+2023-03-15,2023-03-10,2023-03-14,PO-1006,Plains Hardware,Jordan Cruz,52345678,675.25,675.25,6,2,F,Hand Tools
+2023-04-01,2023-03-28,2023-04-05,PO-1007,West Texas Supplies,Jamie Smith,12345678,4100.00,2050.00,20,5,BN,Safety Equipment
+2023-04-18,2023-04-12,2023-04-13,PO-1008,Lubbock Tech,Taylor Brooks,62345678,1575.45,1575.45,9,0,AN,Computer Monitors
+2023-05-05,2023-05-01,2023-05-04,PO-1009,Central Office Co.,Morgan Lee,22345678,860.30,430.15,7,1,F,Desk Accessories
+2023-05-22,2023-05-18,2023-05-30,PO-1010,Sunset Services,Jordan Cruz,32345678,2150.80,1075.40,3,0,NN,Janitorial Services
